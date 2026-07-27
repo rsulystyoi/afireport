@@ -1,11 +1,19 @@
 import streamlit as st
 import pandas as pd
 from datetime import datetime
+import io
+from sqlalchemy import text
 
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="PT. AFI - Report", layout="centered")
 
-# --- FUNGSI KHUSUS RESET TOTAL DATA OVERTIME ---
+# --- KONEKSI KE DATABASE POSTGRESQL ---
+try:
+    conn = st.connection("postgresql", type="sql")
+except Exception as e:
+    st.error("Gagal terhubung ke database PostgreSQL. Pastikan PostgreSQL berjalan dan file .streamlit/secrets.toml sudah dikonfigurasi dengan benar.")
+
+# --- FUNGSI RESET DATA OVERTIME ---
 def reset_data_ot():
     st.session_state.data_rows_ot = [
         {"nama": "", "mulai": "", "selesai": "", "makan": "Ya", "jemputan": "Ya"}
@@ -14,7 +22,7 @@ def reset_data_ot():
         if key.startswith("ot_nama_") or key.startswith("ot_mulai_") or key.startswith("ot_selesai_"):
             del st.session_state[key]
 
-# --- INISIALISASI SESSION STATE ---
+# --- INISIALISASI SESSION STATE UI ---
 if 'page' not in st.session_state:
     st.session_state.page = 'login'
 if 'user_info' not in st.session_state:
@@ -27,13 +35,13 @@ if 'data_rows_ot' not in st.session_state:
         {"nama": "", "mulai": "", "selesai": "", "makan": "Ya", "jemputan": "Ya"}
     ]
 
-# State Khusus Tahap Daily Report
 if 'dr_step' not in st.session_state:
     st.session_state.dr_step = 1
 if 'dr_category' not in st.session_state:
     st.session_state.dr_category = ""
 if 'dr_work_type' not in st.session_state:
     st.session_state.dr_work_type = "Regular"
+
 
 # =====================================================================
 # 1. HALAMAN LOGIN
@@ -70,7 +78,7 @@ elif st.session_state.page == 'select_menu':
     tanggal_input = st.date_input("Tanggal Input :", datetime.now())
     
     st.write("---")
-    st.subheader("Pilih Laporan:")
+    st.subheader("Pilih Laporan / Menu:")
     
     col1, col2, col3 = st.columns(3)
     
@@ -96,12 +104,17 @@ elif st.session_state.page == 'select_menu':
             st.session_state.menu_params = {
                 "tahun": tahun, "bulan": bulan, "forecast": forecast, "target_ot": target_ot, "tanggal": tanggal_input
             }
-            st.session_state.dr_step = 1  # Reset ke Tahap 1
+            st.session_state.dr_step = 1
             st.session_state.page = 'input_daily_report'
             st.rerun()
 
+    st.write("")
+    if st.button("Summary Report", use_container_width=True, type="secondary"):
+        st.session_state.page = 'rekap_data'
+        st.rerun()
+
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI
+# 3. HALAMAN INPUT ABSENSI (POSTGRESQL - FIXED)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.title("📝 Attendance Page")
@@ -148,17 +161,40 @@ elif st.session_state.page == 'input_absensi':
     col_submit1, col_submit2 = st.columns(2)
     with col_submit1:
         if st.button("SUBMIT DATA ABSENSI", use_container_width=True, type="primary"):
-            st.success("Data Absensi Berhasil Disimpan!")
+            # INSERT DATA KE POSTGRESQL MENGGUNAKAN ENGINE CONNECT
+            with conn.engine.begin() as connection:
+                for kat, list_nama in data_nama_terinput.items():
+                    for nm in list_nama:
+                        if nm.strip() != "":
+                            query = text("""
+                                INSERT INTO db_absensi (user_input, nik_user, tahun, bulan, tanggal, shift, leader, total_member, kategori, nama_karyawan)
+                                VALUES (:user_input, :nik_user, :tahun, :bulan, :tanggal, :shift, :leader, :total_member, :kategori, :nama_karyawan)
+                            """)
+                            connection.execute(query, {
+                                "user_input": st.session_state.user_info.get("nama", ""),
+                                "nik_user": st.session_state.user_info.get("nik", ""),
+                                "tahun": p.get("tahun"),
+                                "bulan": p.get("bulan"),
+                                "tanggal": str(p.get("tanggal")),
+                                "shift": shift,
+                                "leader": leader,
+                                "total_member": total_member,
+                                "kategori": kat,
+                                "nama_karyawan": nm
+                            })
+
+            st.success("Data Absensi Berhasil Disimpan ke PostgreSQL!")
             st.session_state.jumlah_input_absensi = {kat: 1 for kat in kategori_absensi}
             st.session_state.page = 'select_menu'
             st.rerun()
+
     with col_submit2:
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
             st.rerun()
 
 # =====================================================================
-# 4. HALAMAN INPUT OVERTIME (SOLUSI MUTLAK LIVE TEXT DISPLAY)
+# 4. HALAMAN INPUT OVERTIME (POSTGRESQL - FIXED)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.title("📝 Overtime Page")
@@ -166,7 +202,6 @@ elif st.session_state.page == 'input_overtime':
     st.caption(f"Parameter: {p.get('tanggal')} | Bulan: {p.get('bulan')} {p.get('tahun')} | Forecast: {p.get('forecast')} | Target OT: {p.get('target_ot')} Jam")
     st.write("---")
     
-    # Header Dokumen
     col_h1, col_h2 = st.columns(2)
     with col_h1:
         hari_tanggal = st.date_input("Hari / Tanggal :", key="ot_date")
@@ -180,7 +215,6 @@ elif st.session_state.page == 'input_overtime':
     st.write("---")
     st.subheader("Daftar Karyawan Lembur")
     
-    # Judul Label Kolom
     col_l1, col_l2, col_l3, col_l4, col_l5, col_l6, col_l7 = st.columns([2.5, 1.5, 1.5, 1.2, 1.2, 1.2, 0.8])
     col_l1.markdown("**Nama**")
     col_l2.markdown("**Mulai (HH:MM)**")
@@ -190,7 +224,6 @@ elif st.session_state.page == 'input_overtime':
     col_l6.markdown("**Jemput**")
     col_l7.markdown("**[+]**")
 
-    # --- PERHITUNGAN DATA SECARA LIVE MURNI ---
     list_jam_terhitung = []
     total_jam_ot_kalkulasi = 0.0
 
@@ -208,7 +241,7 @@ elif st.session_state.page == 'input_overtime':
                 selisih_detik = selisih.total_seconds()
                 
                 if selisih_detik < 0:
-                    selisih_detik += 24 * 3600  # Lintas tengah malam
+                    selisih_detik += 24 * 3600
                     
                 jam_ot_per_baris = selisih_detik / 3600
             except ValueError:
@@ -217,7 +250,6 @@ elif st.session_state.page == 'input_overtime':
         list_jam_terhitung.append(jam_ot_per_baris)
         total_jam_ot_kalkulasi += jam_ot_per_baris
 
-    # --- PENGGAMBARAN WIDGET INPUT KE LAYAR WEB ---
     for i, row in enumerate(st.session_state.data_rows_ot):
         c1, c2, c3, c4, c5, c6, c7 = st.columns([2.5, 1.5, 1.5, 1.2, 1.2, 1.2, 0.8])
         
@@ -254,21 +286,52 @@ elif st.session_state.page == 'input_overtime':
     st.markdown(f"### 📊 Total Keseluruhan Jam OT : `{total_jam_ot_kalkulasi:.2f}` Jam")
     st.write("---")
     
-    # Footer Dokumen
     col_f1, col_f2 = st.columns(2)
     with col_f1:
         st.write("**Yang Memerintah:**")
-        st.text_input("Dibuat Oleh (Leader/Spv):", key="f_leader")
-        st.text_input("Disetujui Oleh (Manager):", key="f_mgr1")
-        st.text_input("Diketahui Oleh (HR & GA):", key="f_hr1")
+        f_leader = st.text_input("Dibuat Oleh (Leader/Spv):", key="f_leader")
+        f_mgr1 = st.text_input("Disetujui Oleh (Manager):", key="f_mgr1")
+        f_hr1 = st.text_input("Diketahui Oleh (HR & GA):", key="f_hr1")
     st.write("---")
     col_submit1, col_submit2 = st.columns(2)
     with col_submit1:
         if st.button("SUBMIT DATA OVERTIME", use_container_width=True, type="primary", key="submit_ot_final"):
-            st.success("Data Lembur Berhasil Disimpan!")
+            shift_info = []
+            if shift_normal: shift_info.append("Normal/Shift 1")
+            if shift_2: shift_info.append("Shift 2")
+            if shift_libur: shift_info.append("Lembur Libur")
+            shift_str = ", ".join(shift_info) if shift_info else "-"
+
+            # INSERT DATA OVERTIME KE POSTGRESQL
+            with conn.engine.begin() as connection:
+                for k, row_ot in enumerate(st.session_state.data_rows_ot):
+                    nm_ot = st.session_state.get(f"ot_nama_{k}", row_ot["nama"]).strip()
+                    if nm_ot != "":
+                        query = text("""
+                            INSERT INTO db_overtime (user_input, hari_tanggal, dept_section, shift, nama_karyawan, jam_mulai, jam_selesai, jam_ot, makan, jemputan, leader, manager, hr_ga)
+                            VALUES (:user_input, :hari_tanggal, :dept_section, :shift, :nama_karyawan, :jam_mulai, :jam_selesai, :jam_ot, :makan, :jemputan, :leader, :manager, :hr_ga)
+                        """)
+                        connection.execute(query, {
+                            "user_input": st.session_state.user_info.get("nama", ""),
+                            "hari_tanggal": str(hari_tanggal),
+                            "dept_section": dept_section,
+                            "shift": shift_str,
+                            "nama_karyawan": nm_ot,
+                            "jam_mulai": st.session_state.get(f"ot_mulai_{k}", row_ot["mulai"]),
+                            "jam_selesai": st.session_state.get(f"ot_selesai_{k}", row_ot["selesai"]),
+                            "jam_ot": list_jam_terhitung[k],
+                            "makan": st.session_state.get(f"ot_makan_{k}", row_ot["makan"]),
+                            "jemputan": st.session_state.get(f"ot_jemput_{k}", row_ot["jemputan"]),
+                            "leader": f_leader,
+                            "manager": f_mgr1,
+                            "hr_ga": f_hr1
+                        })
+
+            st.success("Data Lembur Berhasil Disimpan ke PostgreSQL!")
             reset_data_ot()
             st.session_state.page = 'select_menu'
             st.rerun()
+
     with col_submit2:
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_ot_final"):
             reset_data_ot()
@@ -276,7 +339,7 @@ elif st.session_state.page == 'input_overtime':
             st.rerun()
 
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (SESUAI INPUT MANUAL KHUSUS)
+# 5. HALAMAN INPUT DAILY REPORT (POSTGRESQL - FIXED)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.title("📝 Daily Report Page")
@@ -284,25 +347,13 @@ elif st.session_state.page == 'input_daily_report':
     st.caption(f"Parameter: {p.get('tanggal')} | Bulan: {p.get('bulan')} {p.get('tahun')} | Forecast: {p.get('forecast')} | Target OT: {p.get('target_ot')} Jam")
     st.write("---")
 
-    # -----------------------------------------------------------------
-    # TAHAP 1: PILIH KATEGORI & TIPE PEKERJAAN
-    # -----------------------------------------------------------------
     if st.session_state.dr_step == 1:
         st.subheader("Pilih Kategori Pekerjaan & Tipe Kerja")
 
         list_kategori = [
-            "Final Inspeksi Lokal",
-            "Final Inspeksi Export",
-            "Subcont",
-            "Assy/Packing",
-            "Sortir/Pilah",
-            "Sortir/Pilah Eksternal",
-            "Retagging",
-            "PDI/Pre-Delivery",
-            "5S/Internal",
-            "Trial",
-            "Training",
-            "Others"
+            "Final Inspeksi Lokal", "Final Inspeksi Export", "Subcont", "Assy/Packing",
+            "Sortir/Pilah", "Sortir/Pilah Eksternal", "Retagging", "PDI/Pre-Delivery",
+            "5S/Internal", "Trial", "Training", "Others"
         ]
 
         kat_terpilih = st.radio("Kategori Pekerjaan :", list_kategori, key="dr_kat_radio")
@@ -330,30 +381,20 @@ elif st.session_state.page == 'input_daily_report':
                 st.session_state.page = 'select_menu'
                 st.rerun()
 
-    # -----------------------------------------------------------------
-    # TAHAP 2: FORM DETAIL LAPORAN (FORM MANUAL RINGKAS)
-    # -----------------------------------------------------------------
     elif st.session_state.dr_step == 2:
         st.info(f"📌 **Kategori:** {st.session_state.dr_category} | **Tipe Kerja:** {st.session_state.dr_work_type}")
         st.write("---")
 
-        # 1. Nama
         nama_dr = st.text_input("Nama :", key="dr_nama")
-
-        # 2. NIK
         nik_dr = st.text_input("NIK :", key="dr_nik")
-
-        # 3. No Meja
         no_meja = st.text_input("No. Meja :", key="dr_no_meja")
 
-        # 4. Start Kerja & 5. Finish Kerja
         col_w1, col_w2 = st.columns(2)
         with col_w1:
             start_kerja = st.text_input("Start Kerja (HH:MM) :", placeholder="00:00", key="dr_start")
         with col_w2:
             finish_kerja = st.text_input("Finish Kerja (HH:MM) :", placeholder="00:00", key="dr_finish")
 
-        # 6. Total Waktu Kerja (Kalkulasi Otomatis Live)
         total_waktu = 0.0
         s_str = start_kerja.strip()
         f_str = finish_kerja.strip()
@@ -371,7 +412,6 @@ elif st.session_state.page == 'input_daily_report':
         st.markdown(f"**Total Waktu Kerja :**")
         st.markdown(f"<div style='background-color:#f0f2f6; padding:8px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #dcdcdc; color:#333; margin-bottom:15px;'>{total_waktu:.2f} Jam</div>", unsafe_allow_html=True)
 
-        # 7. Result (Box/Lot)
         result_box_lot = st.text_input("Result (Box/Lot) :", key="dr_result_box_lot")
 
         st.write("---")
@@ -379,7 +419,29 @@ elif st.session_state.page == 'input_daily_report':
         
         with col_submit1:
             if st.button("SUBMIT DAILY REPORT", use_container_width=True, type="primary", key="submit_dr_final"):
-                st.success("Daily Report Berhasil Disimpan!")
+                # INSERT DAILY REPORT KE POSTGRESQL
+                with conn.engine.begin() as connection:
+                    query = text("""
+                        INSERT INTO db_daily_report (user_input, tahun, bulan, tanggal, kategori_pekerjaan, tipe_kerja, nama, nik, no_meja, start_kerja, finish_kerja, total_waktu, result_box_lot)
+                        VALUES (:user_input, :tahun, :bulan, :tanggal, :kategori_pekerjaan, :tipe_kerja, :nama, :nik, :no_meja, :start_kerja, :finish_kerja, :total_waktu, :result_box_lot)
+                    """)
+                    connection.execute(query, {
+                        "user_input": st.session_state.user_info.get("nama", ""),
+                        "tahun": p.get("tahun"),
+                        "bulan": p.get("bulan"),
+                        "tanggal": str(p.get("tanggal")),
+                        "kategori_pekerjaan": st.session_state.dr_category,
+                        "tipe_kerja": st.session_state.dr_work_type,
+                        "nama": nama_dr,
+                        "nik": nik_dr,
+                        "no_meja": no_meja,
+                        "start_kerja": start_kerja,
+                        "finish_kerja": finish_kerja,
+                        "total_waktu": total_waktu,
+                        "result_box_lot": result_box_lot
+                    })
+
+                st.success("Daily Report Berhasil Disimpan ke PostgreSQL!")
                 st.session_state.dr_step = 1
                 st.session_state.page = 'select_menu'
                 st.rerun()
@@ -394,3 +456,87 @@ elif st.session_state.page == 'input_daily_report':
                 st.session_state.dr_step = 1
                 st.session_state.page = 'select_menu'
                 st.rerun()
+
+# =====================================================================
+# 6. HALAMAN REKAP DATA POSTGRESQL & EXCEL
+# =====================================================================
+elif st.session_state.page == 'rekap_data':
+    st.title("Smmary Report")
+    st.caption("")
+    st.write("---")
+
+    tab1, tab2, tab3 = st.tabs(["📋 Data Absensi", "⏰ Data Overtime", "📝 Data Daily Report"])
+
+    # TAB 1: ABSENSI
+    with tab1:
+        st.subheader("Data Laporan Absensi")
+        try:
+            df_abs = conn.query("SELECT * FROM db_absensi ORDER BY id DESC;", ttl="0s")
+            if len(df_abs) > 0:
+                st.dataframe(df_abs, use_container_width=True)
+
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_abs.to_excel(writer, index=False, sheet_name='Absensi')
+                st.download_button(
+                    label="📥 Download Excel - Absensi",
+                    data=buffer.getvalue(),
+                    file_name=f"Rekap_Absensi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary"
+                )
+            else:
+                st.info("Belum ada data Absensi di PostgreSQL.")
+        except Exception as err:
+            st.error(f"Gagal membaca tabel db_absensi: {err}")
+
+    # TAB 2: OVERTIME
+    with tab2:
+        st.subheader("Data Laporan Overtime")
+        try:
+            df_ot = conn.query("SELECT * FROM db_overtime ORDER BY id DESC;", ttl="0s")
+            if len(df_ot) > 0:
+                st.dataframe(df_ot, use_container_width=True)
+
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_ot.to_excel(writer, index=False, sheet_name='Overtime')
+                st.download_button(
+                    label="📥 Download Excel - Overtime",
+                    data=buffer.getvalue(),
+                    file_name=f"Rekap_Overtime_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary"
+                )
+            else:
+                st.info("Belum ada data Overtime di PostgreSQL.")
+        except Exception as err:
+            st.error(f"Gagal membaca tabel db_overtime: {err}")
+
+    # TAB 3: DAILY REPORT
+    with tab3:
+        st.subheader("Data Daily Report")
+        try:
+            df_dr = conn.query("SELECT * FROM db_daily_report ORDER BY id DESC;", ttl="0s")
+            if len(df_dr) > 0:
+                st.dataframe(df_dr, use_container_width=True)
+
+                buffer = io.BytesIO()
+                with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                    df_dr.to_excel(writer, index=False, sheet_name='DailyReport')
+                st.download_button(
+                    label="📥 Download Excel - Daily Report",
+                    data=buffer.getvalue(),
+                    file_name=f"Rekap_DailyReport_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary"
+                )
+            else:
+                st.info("Belum ada data Daily Report di PostgreSQL.")
+        except Exception as err:
+            st.error(f"Gagal membaca tabel db_daily_report: {err}")
+
+    st.write("---")
+    if st.button("⬅️ Kembali ke Menu Utama", use_container_width=True, key="back_rekap"):
+        st.session_state.page = 'select_menu'
+        st.rerun()
