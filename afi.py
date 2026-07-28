@@ -183,7 +183,7 @@ elif st.session_state.page == 'input_absensi':
                                 "nama_karyawan": nm
                             })
 
-            st.success("Data Absensi Berhasil Disimpan ke PostgreSQL!")
+            st.success("Data Absensi Berhasil Disimpan!")
             st.session_state.jumlah_input_absensi = {kat: 1 for kat in kategori_absensi}
             st.session_state.page = 'select_menu'
             st.rerun()
@@ -327,7 +327,7 @@ elif st.session_state.page == 'input_overtime':
                             "hr_ga": f_hr1
                         })
 
-            st.success("Data Lembur Berhasil Disimpan ke PostgreSQL!")
+            st.success("Data Lembur Berhasil Disimpan!")
             reset_data_ot()
             st.session_state.page = 'select_menu'
             st.rerun()
@@ -441,7 +441,7 @@ elif st.session_state.page == 'input_daily_report':
                         "result_box_lot": result_box_lot
                     })
 
-                st.success("Daily Report Berhasil Disimpan ke PostgreSQL!")
+                st.success("Daily Report Berhasil Disimpan!")
                 st.session_state.dr_step = 1
                 st.session_state.page = 'select_menu'
                 st.rerun()
@@ -486,7 +486,7 @@ elif st.session_state.page == 'rekap_data':
                     type="primary"
                 )
             else:
-                st.info("Belum ada data Absensi di PostgreSQL.")
+                st.info("Belum ada data Absensi.")
         except Exception as err:
             st.error(f"Gagal membaca tabel db_absensi: {err}")
 
@@ -509,7 +509,7 @@ elif st.session_state.page == 'rekap_data':
                     type="primary"
                 )
             else:
-                st.info("Belum ada data Overtime di PostgreSQL.")
+                st.info("Belum ada data Overtime.")
         except Exception as err:
             st.error(f"Gagal membaca tabel db_overtime: {err}")
 
@@ -532,7 +532,7 @@ elif st.session_state.page == 'rekap_data':
                     type="primary"
                 )
             else:
-                st.info("Belum ada data Daily Report di PostgreSQL.")
+                st.info("Belum ada data Daily Report.")
         except Exception as err:
             st.error(f"Gagal membaca tabel db_daily_report: {err}")
 
