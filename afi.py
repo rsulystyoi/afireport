@@ -432,168 +432,156 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (AMBIL NAMA DARI DB_SHIFT)
+# 5. HALAMAN INPUT DAILY REPORT (FORM RESPONSIF TANPA TABEL / LIVE HITUNG)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📝 Daily Report Page")
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
-    
-    # -----------------------------------------------------------------
-    # MENGAMBIL DATA HEADER & TOTAL MP HADIR DARI ABSENSI / SHIFT
-    # -----------------------------------------------------------------
-    shift_val = "Shift 1"
-    leader_val = "-"
-    total_mp_hadir = 0
-    
-    try:
-        df_abs_last = conn.query("SELECT shift, leader, total_member FROM db_absensi ORDER BY id DESC LIMIT 1;", ttl="0s")
-        if len(df_abs_last) > 0:
-            shift_val = df_abs_last['shift'].iloc[0]
-            leader_val = df_abs_last['leader'].iloc[0]
-            tot_mem = int(df_abs_last['total_member'].iloc[0])
-            
-            df_absen_count = conn.query("""
-                SELECT COUNT(*) as tidak_hadir 
-                FROM db_absensi 
-                WHERE waktu_submit = (SELECT MAX(waktu_submit) FROM db_absensi);
-            """, ttl="0s")
-            
-            tot_tidak_hadir = int(df_absen_count['tidak_hadir'].iloc[0]) if len(df_absen_count) > 0 else 0
-            total_mp_hadir = tot_mem - tot_tidak_hadir
-            if total_mp_hadir < 0:
-                total_mp_hadir = 0
-        else:
-            df_shift_count = conn.query("SELECT COUNT(*) as total FROM db_shift;", ttl="0s")
-            if len(df_shift_count) > 0:
-                total_mp_hadir = int(df_shift_count['total'].iloc[0])
-    except Exception as e:
-        total_mp_hadir = 0
+    st.write("---")
 
-    # -----------------------------------------------------------------
-    # AMBIL DAFTAR NAMA DARI SCHEDULE SHIFT (DB_SHIFT)
-    # -----------------------------------------------------------------
-    try:
-        df_nama_shift = conn.query("SELECT DISTINCT nama FROM db_shift WHERE nama IS NOT NULL AND nama != '' ORDER BY nama ASC;", ttl="0s")
-        list_nama_shift = df_nama_shift['nama'].tolist() if len(df_nama_shift) > 0 else []
-    except Exception as e:
-        list_nama_shift = []
-
-    # -----------------------------------------------------------------
-    # HEADER: HARI/TANGGAL, SHIFT & TOTAL MP
-    # -----------------------------------------------------------------
+    # 1. HEADER: HARI / TANGGAL & SHIFT
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
     with col_hdr2:
-        shift_dr = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"], index=0 if shift_val=="Shift 1" else (1 if shift_val=="Shift 2" else 2), key="dr_shift_sel")
+        shift_dr = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"], key="dr_shift_sel")
+
+    # 2. QUERY DAFTAR KARYAWAN BERDASARKAN SHIFT TERPILIH DARI DB_SHIFT
+    try:
+        query_nama = text("SELECT DISTINCT nama FROM db_shift WHERE LOWER(shift) = LOWER(:shift_pilihan) AND nama IS NOT NULL AND nama != '' ORDER BY nama ASC;")
+        df_nama_shift = conn.query(query_nama.text, params={"shift_pilihan": shift_dr}, ttl="0s")
+        list_nama_shift = df_nama_shift['nama'].tolist() if len(df_nama_shift) > 0 else []
+    except Exception as e:
+        list_nama_shift = []
+
+    total_mp_shift = len(list_nama_shift)
 
     st.markdown(
         f"""
         <div style='background-color:#d4edda; padding:12px; border-radius:6px; text-align:center; border:1px solid #c3e6cb; margin-top:10px; margin-bottom:15px; width:100%;'>
-            <div style='font-size:14px; font-weight:bold; color:#155724; margin-bottom:4px;'>Total MP</div>
-            <div style='font-size:20px; font-weight:bold; color:#155724;'>{total_mp_hadir} Orang</div>
+            <div style='font-size:14px; font-weight:bold; color:#155724; margin-bottom:4px;'>Total MP ({shift_dr})</div>
+            <div style='font-size:20px; font-weight:bold; color:#155724;'>{total_mp_shift} Orang</div>
         </div>
         """, 
         unsafe_allow_html=True
     )
     st.write("---")
 
-    # -----------------------------------------------------------------
-    # FORM INPUT UTAMA DAILY REPORT
-    # -----------------------------------------------------------------
-    # 1. Dropdown Nama Karyawan (Mengambil dari db_shift)
     if list_nama_shift:
-        nama_dr = st.selectbox("Nama :", options=list_nama_shift, key="dr_nama_select")
-    else:
-        st.warning("⚠️ Data Schedule Shift belum ada. Silakan ketik nama secara manual:")
-        nama_dr = st.text_input("Nama :", key="dr_nama_manual")
+        list_job_options = [
+            "- Pilih Job -", "QA", "QC Factory", "Lokal Meja FI", "Lokal Vinyl DDMI", "Lokal Machine", 
+            "Engine Bolt", "Sugin", "Q-Gate", "Hardness", "Measurement", 
+            "Sortir 100%", "Leader", "Others"
+        ]
 
-    # 2. Job / Kategori Pekerjaan
-    list_job = [
-        "QA", "QC Factory", "Lokal Meja FI", "Lokal Vinyl DDMI", "Lokal Machine", 
-        "Engine Bolt", "Sugin", "Q-Gate", "Hardness", "Measurement", 
-        "Sortir 100%", "Leader", "Others"
-    ]
-    job_terpilih = st.multiselect("Job / Kategori Pekerjaan :", options=list_job, key="dr_job_multiselect")
-    
-    job_others = ""
-    if "Others" in job_terpilih:
-        job_others = st.text_input("Sebutkan Job Lainnya :", key="dr_job_others")
+        # Inisialisasi struktur data jumlah pekerjaan per karyawan
+        if "dr_user_jobs" not in st.session_state or st.session_state.get("dr_last_shift_resp") != shift_dr:
+            # Mengeset default 1 pekerjaan per karyawan
+            st.session_state.dr_user_jobs = {nama: [1] for nama in list_nama_shift}
+            st.session_state.dr_last_shift_resp = shift_dr
 
-    # 3. Jam Kerja Regular & OT
-    col_j1, col_j2 = st.columns(2)
-    with col_j1:
-        jam_regular = st.number_input("Jam Kerja Regular (Jam) :", min_value=0.0, step=0.5, key="dr_jam_regular")
-    with col_j2:
-        jam_ot = st.number_input("Jam Kerja OT (Jam) :", min_value=0.0, step=0.5, key="dr_jam_ot")
+        st.subheader("📋 Input Pekerjaan Harian Anggota")
+        st.caption("Isi form pekerjaan di bawah ini. Total Box akan terhitung secara otomatis.")
 
-    # 4. Jumlah Box Regular & OT
-    col_b1, col_b2 = st.columns(2)
-    with col_b1:
-        box_regular = st.number_input("Jumlah Box Regular :", min_value=0, step=1, key="dr_box_regular")
-    with col_b2:
-        box_ot = st.number_input("Jumlah Box OT :", min_value=0, step=1, key="dr_box_ot")
+        records_to_insert = []
 
-    # 5. Total Box / Job
-    total_box_job = box_regular + box_ot
-    st.markdown(f"**Total Box / Job :**")
-    st.markdown(f"<div style='background-color:#e2e3e5; padding:8px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #d6d8db; color:#383d41; margin-bottom:15px;'>{total_box_job} Box</div>", unsafe_allow_html=True)
+        # LOOPING FORM PER KARYAWAN
+        for idx, nama in enumerate(list_nama_shift):
+            st.markdown(f"##### 👤 **{idx+1}. {nama.upper()}**")
+            
+            job_rows = st.session_state.dr_user_jobs.get(nama, [1])
 
-    # 6. Keterangan
-    keterangan_dr = st.text_area("Keterangan :", placeholder="Tambahkan catatan atau keterangan pekerjaan di sini...", key="dr_keterangan")
+            for j_idx in range(len(job_rows)):
+                pfx = f"dr_{shift_dr}_{nama}_{j_idx}" # Key unik per widget
 
-    st.write("---")
-    col_submit1, col_submit2 = st.columns(2)
-    
-    with col_submit1:
-        if st.button("Submit Daily Report", use_container_width=True, type="primary", key="submit_dr_final"):
-            if not nama_dr.strip():
-                st.error("Silakan isi Nama terlebih dahulu!")
-            elif not job_terpilih:
-                st.error("Silakan pilih minimal satu Job!")
-            else:
-                str_job = ", ".join(job_terpilih)
-                if "Others" in job_terpilih and job_others.strip():
-                    str_job = str_job.replace("Others", f"Others ({job_others.strip()})")
+                # Membagi form dalam 6 Kolom Sejajar
+                c_job, c_jreg, c_jot, c_breg, c_bot, c_tot = st.columns([2.5, 1.2, 1.2, 1.2, 1.2, 1.2])
 
-                str_tgl_dr = tgl_dr.strftime("%Y-%m-%d")
-                str_thn_dr = tgl_dr.strftime("%Y")
-                str_bln_dr = tgl_dr.strftime("%B")
-                
-                with conn.engine.begin() as connection:
-                    query = text("""
-                        INSERT INTO db_daily_report (
-                            user_input, tahun, bulan, tanggal, shift, nama, job_kategori, 
-                            jam_regular, jam_ot, box_regular, box_ot, total_box_job, keterangan
-                        )
-                        VALUES (
-                            :user_input, :tahun, :bulan, :tanggal, :shift, :nama, :job_kategori, 
-                            :jam_regular, :jam_ot, :box_regular, :box_ot, :total_box_job, :keterangan
-                        )
-                    """)
-                    connection.execute(query, {
+                with c_job:
+                    job_val = st.selectbox(f"Job #{j_idx+1}", list_job_options, key=f"{pfx}_job")
+                with c_jreg:
+                    jam_reg = st.number_input("Jam Reg", min_value=0.0, step=0.5, format="%.1f", key=f"{pfx}_jreg")
+                with c_jot:
+                    jam_ot = st.number_input("Jam OT", min_value=0.0, step=0.5, format="%.1f", key=f"{pfx}_jot")
+                with c_breg:
+                    box_reg = st.number_input("Box Reg", min_value=0, step=1, key=f"{pfx}_breg")
+                with c_bot:
+                    box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
+                with c_tot:
+                    # KALKULASI TOTAL BOX LANGSUNG SECARA LIVE
+                    tot_box = box_reg + box_ot
+                    st.markdown("<label style='font-size:14px;'>Total Box</label>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background-color:#e9ecef; padding:6px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #ced4da; color:#495057;'>{tot_box}</div>", unsafe_allow_html=True)
+
+                # Keterangan Opsional per Job
+                ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
+
+                # Simpan ke daftar pengiriman jika job dipilih atau ada isi angka
+                if job_val != "- Pilih Job -" or jam_reg > 0 or jam_ot > 0 or tot_box > 0:
+                    records_to_insert.append({
                         "user_input": st.session_state.user_info.get("nama", ""),
-                        "tahun": str_thn_dr,
-                        "bulan": str_bln_dr,
-                        "tanggal": str_tgl_dr,
+                        "tahun": tgl_dr.strftime("%Y"),
+                        "bulan": tgl_dr.strftime("%B"),
+                        "tanggal": tgl_dr.strftime("%Y-%m-%d"),
                         "shift": shift_dr,
-                        "nama": nama_dr,
-                        "job_kategori": str_job,
-                        "jam_regular": jam_regular,
+                        "nama": nama,
+                        "job_kategori": job_val if job_val != "- Pilih Job -" else "",
+                        "jam_regular": jam_reg,
                         "jam_ot": jam_ot,
-                        "box_regular": box_regular,
+                        "box_regular": box_reg,
                         "box_ot": box_ot,
-                        "total_box_job": total_box_job,
-                        "keterangan": keterangan_dr
+                        "total_box_job": tot_box,
+                        "keterangan": ket_val
                     })
 
-                st.success("Daily Report Berhasil Disimpan ke Database!")
+            # Tombol Tambah Baris Job Khusus untuk Karyawan Ini
+            col_add_btn, _ = st.columns([2, 5])
+            with col_add_btn:
+                if st.button(f"➕ Tambah Job ({nama})", key=f"btn_add_job_{nama}"):
+                    st.session_state.dr_user_jobs[nama].append(len(job_rows) + 1)
+                    st.rerun()
+
+            st.write("---")
+
+        # TOMBOL AKSI UTAMA DI BAGIAN BAWAH
+        col_submit1, col_submit2 = st.columns(2)
+
+        with col_submit1:
+            if st.button("Submit Daily Report", use_container_width=True, type="primary", key="submit_dr_final"):
+                if records_to_insert:
+                    with conn.engine.begin() as connection:
+                        query = text("""
+                            INSERT INTO db_daily_report (
+                                user_input, tahun, bulan, tanggal, shift, nama, job_kategori, 
+                                jam_regular, jam_ot, box_regular, box_ot, total_box_job, keterangan
+                            )
+                            VALUES (
+                                :user_input, :tahun, :bulan, :tanggal, :shift, :nama, :job_kategori, 
+                                :jam_regular, :jam_ot, :box_regular, :box_ot, :total_box_job, :keterangan
+                            )
+                        """)
+                        for item in records_to_insert:
+                            connection.execute(query, item)
+
+                    # Reset state setelah simpan
+                    if "dr_user_jobs" in st.session_state:
+                        del st.session_state["dr_user_jobs"]
+
+                    st.success(f"Berhasil menyimpan {len(records_to_insert)} baris Daily Report!")
+                    st.session_state.page = 'select_menu'
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Belum ada data pekerjaan yang diisi!")
+
+        with col_submit2:
+            if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_form"):
                 st.session_state.page = 'select_menu'
                 st.rerun()
 
-    with col_submit2:
-        if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_final"):
+    else:
+        st.warning(f"⚠️ Tidak ada data karyawan untuk {shift_dr} di Schedule Shift (`db_shift`).")
+        if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_empty"):
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
