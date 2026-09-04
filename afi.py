@@ -432,7 +432,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (DETAIL JOB MULTISELECT & HITUNG BOX)
+# 5. HALAMAN INPUT DAILY REPORT (AMBIL NAMA DARI DB_SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -447,14 +447,12 @@ elif st.session_state.page == 'input_daily_report':
     total_mp_hadir = 0
     
     try:
-        # Mengambil data Absensi terbaru untuk mendapatkan Shift, Leader, dan Total Hadir
         df_abs_last = conn.query("SELECT shift, leader, total_member FROM db_absensi ORDER BY id DESC LIMIT 1;", ttl="0s")
         if len(df_abs_last) > 0:
             shift_val = df_abs_last['shift'].iloc[0]
             leader_val = df_abs_last['leader'].iloc[0]
             tot_mem = int(df_abs_last['total_member'].iloc[0])
             
-            # Hitung Jumlah Tidak Hadir dari Absensi pada entry/session yang sama
             df_absen_count = conn.query("""
                 SELECT COUNT(*) as tidak_hadir 
                 FROM db_absensi 
@@ -462,29 +460,34 @@ elif st.session_state.page == 'input_daily_report':
             """, ttl="0s")
             
             tot_tidak_hadir = int(df_absen_count['tidak_hadir'].iloc[0]) if len(df_absen_count) > 0 else 0
-            
-            # Total MP (Hadir) = Total Member - Tidak Hadir
             total_mp_hadir = tot_mem - tot_tidak_hadir
             if total_mp_hadir < 0:
                 total_mp_hadir = 0
         else:
-            # Jika belum ada data Absensi, ambil jumlah member dari db_shift
             df_shift_count = conn.query("SELECT COUNT(*) as total FROM db_shift;", ttl="0s")
             if len(df_shift_count) > 0:
                 total_mp_hadir = int(df_shift_count['total'].iloc[0])
     except Exception as e:
         total_mp_hadir = 0
+
     # -----------------------------------------------------------------
-    # HEADER: HARI/TANGGAL & SHIFT (SEJAJAR ATAS), TOTAL MP (LEBAR DI BAWAH)
+    # AMBIL DAFTAR NAMA DARI SCHEDULE SHIFT (DB_SHIFT)
     # -----------------------------------------------------------------
-    # 1. Baris Atas: Hari/Tanggal dan Shift sejajar
+    try:
+        df_nama_shift = conn.query("SELECT DISTINCT nama FROM db_shift WHERE nama IS NOT NULL AND nama != '' ORDER BY nama ASC;", ttl="0s")
+        list_nama_shift = df_nama_shift['nama'].tolist() if len(df_nama_shift) > 0 else []
+    except Exception as e:
+        list_nama_shift = []
+
+    # -----------------------------------------------------------------
+    # HEADER: HARI/TANGGAL, SHIFT & TOTAL MP
+    # -----------------------------------------------------------------
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
     with col_hdr2:
         shift_dr = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"], index=0 if shift_val=="Shift 1" else (1 if shift_val=="Shift 2" else 2), key="dr_shift_sel")
 
-    # 2. Baris Bawah: Total MP membentang penuh di bawahnya
     st.markdown(
         f"""
         <div style='background-color:#d4edda; padding:12px; border-radius:6px; text-align:center; border:1px solid #c3e6cb; margin-top:10px; margin-bottom:15px; width:100%;'>
@@ -495,13 +498,18 @@ elif st.session_state.page == 'input_daily_report':
         unsafe_allow_html=True
     )
     st.write("---")
+
     # -----------------------------------------------------------------
     # FORM INPUT UTAMA DAILY REPORT
     # -----------------------------------------------------------------
-    # 1. Nama Karyawan
-    nama_dr = st.text_input("Nama :", key="dr_nama")
+    # 1. Dropdown Nama Karyawan (Mengambil dari db_shift)
+    if list_nama_shift:
+        nama_dr = st.selectbox("Nama :", options=list_nama_shift, key="dr_nama_select")
+    else:
+        st.warning("⚠️ Data Schedule Shift belum ada. Silakan ketik nama secara manual:")
+        nama_dr = st.text_input("Nama :", key="dr_nama_manual")
 
-    # 2. Job / Kategori Pekerjaan (Multiselect - Bisa pilih lebih dari 1)
+    # 2. Job / Kategori Pekerjaan
     list_job = [
         "QA", "QC Factory", "Lokal Meja FI", "Lokal Vinyl DDMI", "Lokal Machine", 
         "Engine Bolt", "Sugin", "Q-Gate", "Hardness", "Measurement", 
@@ -509,7 +517,6 @@ elif st.session_state.page == 'input_daily_report':
     ]
     job_terpilih = st.multiselect("Job / Kategori Pekerjaan :", options=list_job, key="dr_job_multiselect")
     
-    # Jika memilih "Others", sediakan input teks tambahan
     job_others = ""
     if "Others" in job_terpilih:
         job_others = st.text_input("Sebutkan Job Lainnya :", key="dr_job_others")
@@ -528,7 +535,7 @@ elif st.session_state.page == 'input_daily_report':
     with col_b2:
         box_ot = st.number_input("Jumlah Box OT :", min_value=0, step=1, key="dr_box_ot")
 
-    # 5. Total Box / Job (Kalkulasi Otomatis dari Box Regular + Box OT)
+    # 5. Total Box / Job
     total_box_job = box_regular + box_ot
     st.markdown(f"**Total Box / Job :**")
     st.markdown(f"<div style='background-color:#e2e3e5; padding:8px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #d6d8db; color:#383d41; margin-bottom:15px;'>{total_box_job} Box</div>", unsafe_allow_html=True)
@@ -546,7 +553,6 @@ elif st.session_state.page == 'input_daily_report':
             elif not job_terpilih:
                 st.error("Silakan pilih minimal satu Job!")
             else:
-                # Menggabungkan list job menjadi string dipisahkan koma
                 str_job = ", ".join(job_terpilih)
                 if "Others" in job_terpilih and job_others.strip():
                     str_job = str_job.replace("Others", f"Others ({job_others.strip()})")
