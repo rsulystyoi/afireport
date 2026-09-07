@@ -132,7 +132,7 @@ if 'dr_work_type' not in st.session_state:
 # =====================================================================
 if st.session_state.page == 'login':
     # 🖼️ SISIPKAN KODE CSS BACKGROUND GAMBAR DI SINI
-    bg_base64 = get_base64_image("afd.jpg")
+    bg_base64 = get_base64_image("afd.jpeg")
     if bg_base64:
         st.markdown(f"""
             <style>
