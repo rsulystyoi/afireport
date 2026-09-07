@@ -128,7 +128,7 @@ if 'dr_work_type' not in st.session_state:
     st.session_state.dr_work_type = "Regular"
 
 # =====================================================================
-# 1. HALAMAN LOGIN (AKUN STATIS: admin / 1234)
+# 1. HALAMAN LOGIN 
 # =====================================================================
 if st.session_state.page == 'login':
     # 🖼️ SISIPKAN KODE CSS BACKGROUND GAMBAR DI SINI
@@ -156,7 +156,7 @@ if st.session_state.page == 'login':
         """, unsafe_allow_html=True)
 
     # --- KONTEN HALAMAN LOGIN EKSISTING ANDA ---
-    st.markdown("<h2 style='text-align: center;'>AFi - Report</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>AFD - Report</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.write("---")
     
@@ -166,7 +166,7 @@ if st.session_state.page == 'login':
     
     st.write("")
     if st.button("Login", use_container_width=True):
-        if nama_user.strip() == "admin" and nik_user.strip() == "1234":
+        if nama_user.strip() == "rorojonggrang" and nik_user.strip() == "pr4mb4n4n1927":
             st.session_state.user_info = {"nama": nama_user, "nik": "Administrator"}
             st.session_state.page = 'select_menu'
             st.success("Login Berhasil!")
