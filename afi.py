@@ -1,11 +1,23 @@
 import streamlit as st
+import base64
 import pandas as pd
 from datetime import datetime
 import io
 from sqlalchemy import text
 
+# =====================================================================
+# 1. FUNGSI UNTUK MEMBACA GAMBAR LOKAL
+# =====================================================================
+def get_base64_image(image_path):
+    try:
+        with open(image_path, "rb") as img_file:
+            return base64.b64encode(img_file.read()).decode()
+    except Exception:
+        return None
+
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="PT. AFI - Report", layout="wide")
+st.set_page_config(page_title="PT. AFD - Report", layout="wide")
+
 
 st.markdown("""
     <style>
@@ -78,6 +90,7 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
 # --- KONEKSI KE DATABASE POSTGRESQL ---
 try:
     conn = st.connection("postgresql", type="sql")
@@ -114,29 +127,54 @@ if 'dr_category' not in st.session_state:
 if 'dr_work_type' not in st.session_state:
     st.session_state.dr_work_type = "Regular"
 
-
 # =====================================================================
 # 1. HALAMAN LOGIN (AKUN STATIS: admin / 1234)
 # =====================================================================
 if st.session_state.page == 'login':
+    # 🖼️ SISIPKAN KODE CSS BACKGROUND GAMBAR DI SINI
+    bg_base64 = get_base64_image("afd.jpg")
+    if bg_base64:
+        st.markdown(f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/jpg;base64,{bg_base64}");
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+                background-attachment: fixed;
+            }}
+            .block-container {{
+                max-width: 450px !important;
+                margin: auto !important;
+                padding: 2.5rem 2rem !important;
+                background-color: rgba(255, 255, 255, 0.92) !important;
+                border-radius: 12px !important;
+                box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.25) !important;
+                margin-top: 5rem !important;
+            }}
+            </style>
+        """, unsafe_allow_html=True)
+
+    # --- KONTEN HALAMAN LOGIN EKSISTING ANDA ---
     st.markdown("<h2 style='text-align: center;'>AFi - Report</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.write("---")
     
     # Input Username dan Password
     nama_user = st.text_input("Username :")
-    nik_user = st.text_input("Password :", type="password")  # type="password" agar karakter tersamar
+    nik_user = st.text_input("Password :", type="password")
     
     st.write("")
     if st.button("Login", use_container_width=True):
-        # Validasi akun statis (Username: admin & Password: 1234)
-        if nama_user.strip() == "rorojonggrang" and nik_user.strip() == "pr4mb4n4n1927":
+        if nama_user.strip() == "admin" and nik_user.strip() == "1234":
             st.session_state.user_info = {"nama": nama_user, "nik": "Administrator"}
             st.session_state.page = 'select_menu'
             st.success("Login Berhasil!")
             st.rerun()
         else:
             st.error("Username atau Password salah!")
+
+
 # =====================================================================
 # 2. HALAMAN SELECT MENU (DESAIN CLEAN + LOGOUT DI POJOK KANAN BAWAH)
 # =====================================================================
