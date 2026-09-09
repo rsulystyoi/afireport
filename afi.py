@@ -156,7 +156,7 @@ if st.session_state.page == 'login':
         """, unsafe_allow_html=True)
 
     # --- KONTEN HALAMAN LOGIN EKSISTING ANDA ---
-    st.markdown("<h2 style='text-align: center;'>Quality Digital Report</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>QD-Report</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.write("---")
     
@@ -176,7 +176,7 @@ if st.session_state.page == 'login':
 
 
 # =====================================================================
-# 2. HALAMAN SELECT MENU (DESAIN CLEAN + LOGOUT DI POJOK KANAN BAWAH)
+# 2. HALAMAN SELECT MENU
 # =====================================================================
 elif st.session_state.page == 'select_menu':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -222,7 +222,7 @@ elif st.session_state.page == 'select_menu':
             st.success("Berhasil Logout!")
             st.rerun()
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (SESUAI STRUKTUR POSTGRESQL TERBARU)
+# 3. HALAMAN INPUT ABSENSI 
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -261,7 +261,7 @@ elif st.session_state.page == 'input_absensi':
         shift = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"])
         leader = st.text_input("Leader :")
     with col_b:
-        total_member = st.number_input("Total Member (Schedule Shift) :", min_value=0, value=total_member_db, step=1)
+        total_member = st.number_input("Total Member (Schedule Shift) :", min_value=0, value=total_member_db)
 
     # 3. MENGHITUNG TOTAL TIDAK HADIR UNTUK RINGKASAN
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
