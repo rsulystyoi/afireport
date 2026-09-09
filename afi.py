@@ -272,7 +272,8 @@ elif st.session_state.page == 'input_absensi':
     with col_b:
         leader = st.text_input("Leader :")
         
-
+    total_member = total_member_db
+        
     # 3. MENGHITUNG TOTAL TIDAK HADIR UNTUK RINGKASAN
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
     
