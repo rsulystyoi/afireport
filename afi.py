@@ -156,8 +156,7 @@ if st.session_state.page == 'login':
         """, unsafe_allow_html=True)
 
     # --- KONTEN HALAMAN LOGIN EKSISTING ANDA ---
-    st.markdown("<h2 style='text-align: center;'>QD - Report</h2>", unsafe_allow_html=True)
-    st.subheader(" Quality Digital Report ")
+    st.markdown("<h2 style='text-align: center;'>Qulaity Digital Report</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.write("---")
     
