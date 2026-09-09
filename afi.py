@@ -269,9 +269,9 @@ elif st.session_state.page == 'input_absensi':
     col_a, col_b = st.columns(2)
     with col_a:
         shift = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"])
-        leader = st.text_input("Leader :")
     with col_b:
-        total_member = st.number_input("Total Member (Schedule Shift) :", min_value=0, value=total_member_db, step=None)
+        leader = st.text_input("Leader :")
+        
 
     # 3. MENGHITUNG TOTAL TIDAK HADIR UNTUK RINGKASAN
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
