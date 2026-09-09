@@ -739,6 +739,6 @@ elif st.session_state.page == 'rekap_data':
             st.error(f"Gagal membaca data db_daily_report: {err}")
 
     st.write("---")
-    if st.button("⬅️ Kembali ke Menu Utama", use_container_width=True, key="back_rekap_main"):
+    if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_rekap_main"):
         st.session_state.page = 'select_menu'
         st.rerun()
