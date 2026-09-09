@@ -40,7 +40,17 @@ st.markdown("""
     .stSelectbox div[data-baseweb="select"] {
         min-height: 32px !important;
     }
-    
+    button[kind="stepUp"], button[kind="stepDown"] {
+        display: none !important;
+    }
+    input[type=number]::-webkit-inner-spin-button, 
+    input[type=number]::-webkit-outer-spin-button { 
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
     /* Tombol Plus (+) & Tombol Standar Lainnya */
     div.stButton > button {
         height: 32px !important;
@@ -156,7 +166,7 @@ if st.session_state.page == 'login':
         """, unsafe_allow_html=True)
 
     # --- KONTEN HALAMAN LOGIN EKSISTING ANDA ---
-    st.markdown("<h2 style='text-align: center;'>QD-Report</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center;'>QD - Report</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.write("---")
     
