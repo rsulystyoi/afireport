@@ -731,7 +731,7 @@ elif st.session_state.page == 'rekap_data':
     # TAB 2: DATA ABSENSI
     # -----------------------------------------------------------------
     with tab2:
-        st.subheader("Data Laporan Absensi")
+        st.subheader("Data Attendance")
         try:
             df_abs = conn.query("SELECT * FROM db_absensi ORDER BY id DESC;", ttl="0s")
             if len(df_abs) > 0:
@@ -893,6 +893,6 @@ elif st.session_state.page == 'rekap_data':
             st.error(f"Gagal membaca data db_daily_report: {err}")
 
     st.write("---")
-    if st.button("⬅️ Kembali ke Menu Utama", use_container_width=True, key="back_rekap"):
+    if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_rekap"):
         st.session_state.page = 'select_menu'
         st.rerun()
