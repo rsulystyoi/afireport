@@ -6,7 +6,7 @@ import io
 from sqlalchemy import text
 
 # =====================================================================
-# 1. FUNGSI UNTUK MEMBACA GAMBAR LOKAL
+# 1. ADD BACKGROUND
 # =====================================================================
 def get_base64_image(image_path):
     try:
@@ -18,17 +18,15 @@ def get_base64_image(image_path):
 # --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="QD - Report", layout="wide")
 
-
 st.markdown("""
     <style>
-    /* Mengatur lebar area utama aplikasi agar tidak terlalu lebar & tidak terlalu sempit */
+    /* Mengatur lebar area utama */
     .block-container {
         max-width: 85% !important;
         padding-top: 2rem !important;
         padding-bottom: 2rem !important;
         margin: auto !important;
     }
-    
     /* Merampingkan dan menyejajarkan input box */
     div[data-baseweb="input"] {
         min-height: 32px !important;
@@ -62,7 +60,6 @@ st.markdown("""
         justify-content: center !important;
         margin-top: 0px !important;
     }
-
     /* 🎨 WARNA BIRU UNTUK TOMBOL UTAMA & NAVIGASI */
     div.stButton > button:first-child {
         background-color: #78A4CB !important;
@@ -71,8 +68,7 @@ st.markdown("""
         border: none !important;
         font-weight: bold !important;
         transition: 0.3s;
-    }
-    
+    }    
     /* Efek saat tombol di-hover (diarahkan kursor) */
     div.stButton > button:first-child:hover {
         background-color: #2F578A !important;
@@ -89,7 +85,6 @@ st.markdown("""
         background-color: #d33333 !important;
         color: white !important;
     }
-
     /* Style khusus header tabel */
     .table-header {
         font-size: 13px;
@@ -360,7 +355,7 @@ elif st.session_state.page == 'input_absensi':
             st.rerun()
 
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (MENYIMPAN KE TABEL DB_SHIFT)
+# 4. HALAMAN SCHEDULE SHIFT
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     # Header Judul PT. AFI
@@ -481,7 +476,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (FORM RESPONSIF TANPA TABEL / LIVE HITUNG)
+# 5. HALAMAN INPUT DAILY REPORT 
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -634,7 +629,7 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 6. HALAMAN REKAP DATA / SUMMARY REPORT (URUTAN TAB SESUAI ALUR)
+# 6. HALAMAN REKAP DATA / SUMMARY REPORT 
 # =====================================================================
 elif st.session_state.page == 'rekap_data':
     st.title("Summary Report")
