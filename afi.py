@@ -642,7 +642,7 @@ elif st.session_state.page == 'rekap_data':
     st.write("---")
 
     # 📌 URUTAN TAB: 1. Schedule Shift, 2. Attendance, 3. Daily Report
-    tab1, tab2, tab3 = st.tabs(["⏰ Data Schedule Shift", "📋 Data Absensi", "📝 Data Daily Report"])
+    tab1, tab2, tab3 = st.tabs(["⏰ Data Schedule Shift", "📋 Data Attendance", "📝 Data Daily Report"])
 
     # -----------------------------------------------------------------
     # TAB 1: DATA SCHEDULE SHIFT
