@@ -634,122 +634,252 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 6. HALAMAN REKAP DATA 
+# 6. HALAMAN REKAP DATA POSTGRESQL (DENGAN TABEL EDIT & CHECKBOX DELETE)
 # =====================================================================
 elif st.session_state.page == 'rekap_data':
     st.title("📊 Summary Report")
-    st.caption("Rekapitulasi seluruh data laporan PT. Automotive Fasteners Aoyama Indonesia")
+    st.caption("Akses, edit data langsung, atau centang baris yang ingin dihapus dari database.")
     st.write("---")
 
-    # Membuat 3 Tab Laporan
-    tab1, tab2, tab3 = st.tabs(["⏰ Schedule Shift", "📋 Attendance", "📝 Daily Report"])
+    tab1, tab2, tab3 = st.tabs(["📋 Data Absensi", "⏰ Data Schedule Shift", "📝 Data Daily Report"])
 
-    # --- TAB 1: SCHEDULE SHIFT ---
+    # -----------------------------------------------------------------
+    # TAB 1: DATA ABSENSI
+    # -----------------------------------------------------------------
     with tab1:
+        st.subheader("Data Laporan Absensi")
+        try:
+            df_abs = conn.query("SELECT * FROM db_absensi ORDER BY id DESC;", ttl="0s")
+            if len(df_abs) > 0:
+                # Tambahkan kolom checkbox 'Hapus' di paling awal
+                if "Hapus" not in df_abs.columns:
+                    df_abs.insert(0, "Hapus", False)
+
+                # Render tabel interaktif yang dapat diedit & diceklis
+                edited_df_abs = st.data_editor(
+                    df_abs,
+                    hide_index=True,
+                    use_container_width=True,
+                    key="editor_absensi",
+                    disabled=["id", "waktu_submit"] # Kolom ID & waktu dibuat read-only
+                )
+
+                col_save_abs, col_del_abs, col_dl_abs = st.columns([2, 2, 2])
+
+                # 1. SIMPAN PERUBAHAN EDIT TEKS
+                with col_save_abs:
+                    if st.button("💾 Simpan Perubahan Edit", key="btn_save_abs", type="primary"):
+                        with conn.engine.begin() as connection:
+                            for idx, row in edited_df_abs.iterrows():
+                                query = text("""
+                                    UPDATE db_absensi 
+                                    SET user_input = :user_input, tanggal = :tanggal, shift = :shift, 
+                                        leader = :leader, total_member = :total_member, 
+                                        kategori = :kategori, nama_karyawan = :nama_karyawan
+                                    WHERE id = :id;
+                                """)
+                                connection.execute(query, {
+                                    "user_input": row.get("user_input", ""),
+                                    "tanggal": str(row.get("tanggal", "")),
+                                    "shift": row.get("shift", ""),
+                                    "leader": row.get("leader", ""),
+                                    "total_member": int(row.get("total_member", 0)),
+                                    "kategori": row.get("kategori", ""),
+                                    "nama_karyawan": row.get("nama_karyawan", ""),
+                                    "id": int(row.get("id"))
+                                })
+                        st.success("Perubahan data Absensi berhasil disimpan!")
+                        st.rerun()
+
+                # 2. HAPUS BARIS YANG DICENTANG (CEKLIS)
+                with col_del_abs:
+                    rows_to_delete_abs = edited_df_abs[edited_df_abs["Hapus"] == True]
+                    num_del_abs = len(rows_to_delete_abs)
+                    if st.button(f"🗑️ Hapus ({num_del_abs}) Baris Terceklis", key="btn_del_selected_abs", disabled=(num_del_abs == 0)):
+                        ids_to_del = rows_to_delete_abs["id"].tolist()
+                        with conn.engine.begin() as connection:
+                            for item_id in ids_to_del:
+                                connection.execute(text("DELETE FROM db_absensi WHERE id = :id;"), {"id": int(item_id)})
+                        st.success(f"{num_del_abs} baris data Absensi berhasil dihapus!")
+                        st.rerun()
+
+                # 3. DOWNLOAD EXCEL
+                with col_dl_abs:
+                    buffer_abs = io.BytesIO()
+                    df_export_abs = df_abs.drop(columns=["Hapus"]) if "Hapus" in df_abs.columns else df_abs
+                    with pd.ExcelWriter(buffer_abs, engine='openpyxl') as writer:
+                        df_export_abs.to_excel(writer, index=False, sheet_name='Absensi')
+                    st.download_button(
+                        label="📥 Download Excel",
+                        data=buffer_abs.getvalue(),
+                        file_name=f"Rekap_Absensi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        key="dl_excel_abs"
+                    )
+            else:
+                st.info("Belum ada data Absensi di database.")
+        except Exception as err:
+            st.error(f"Gagal membaca data db_absensi: {err}")
+
+    # -----------------------------------------------------------------
+    # TAB 2: DATA SCHEDULE SHIFT
+    # -----------------------------------------------------------------
+    with tab2:
         st.subheader("Data Schedule Shift")
         try:
             df_ot = conn.query("SELECT * FROM db_shift ORDER BY id DESC;", ttl="0s")
             if len(df_ot) > 0:
-                st.dataframe(df_ot, use_container_width=True)
+                if "Hapus" not in df_ot.columns:
+                    df_ot.insert(0, "Hapus", False)
 
-                col_dl_ot, col_del_ot = st.columns([2, 1])
+                edited_df_ot = st.data_editor(
+                    df_ot,
+                    hide_index=True,
+                    use_container_width=True,
+                    key="editor_schedule_shift",
+                    disabled=["id", "waktu_submit"]
+                )
+
+                col_save_ot, col_del_ot, col_dl_ot = st.columns([2, 2, 2])
+
+                # 1. SIMPAN EDIT
+                with col_save_ot:
+                    if st.button("💾 Simpan Perubahan Edit", key="btn_save_ot", type="primary"):
+                        with conn.engine.begin() as connection:
+                            for idx, row in edited_df_ot.iterrows():
+                                query = text("""
+                                    UPDATE db_shift 
+                                    SET periode = :periode, nama = :nama, nik = :nik, 
+                                        section = :section, job = :job, titik_jemputan = :titik_jemputan, 
+                                        no_hp = :no_hp, shift = :shift
+                                    WHERE id = :id;
+                                """)
+                                connection.execute(query, {
+                                    "periode": row.get("periode", ""),
+                                    "nama": row.get("nama", ""),
+                                    "nik": row.get("nik", ""),
+                                    "section": row.get("section", ""),
+                                    "job": row.get("job", ""),
+                                    "titik_jemputan": row.get("titik_jemputan", ""),
+                                    "no_hp": row.get("no_hp", ""),
+                                    "shift": row.get("shift", ""),
+                                    "id": int(row.get("id"))
+                                })
+                        st.success("Perubahan data Schedule Shift berhasil disimpan!")
+                        st.rerun()
+
+                # 2. HAPUS BARIS TERCEKLIS
+                with col_del_ot:
+                    rows_to_delete_ot = edited_df_ot[edited_df_ot["Hapus"] == True]
+                    num_del_ot = len(rows_to_delete_ot)
+                    if st.button(f"🗑️ Hapus ({num_del_ot}) Baris Terceklis", key="btn_del_selected_ot", disabled=(num_del_ot == 0)):
+                        ids_to_del = rows_to_delete_ot["id"].tolist()
+                        with conn.engine.begin() as connection:
+                            for item_id in ids_to_del:
+                                connection.execute(text("DELETE FROM db_shift WHERE id = :id;"), {"id": int(item_id)})
+                        st.success(f"{num_del_ot} baris data Schedule Shift berhasil dihapus!")
+                        st.rerun()
+
+                # 3. DOWNLOAD EXCEL
                 with col_dl_ot:
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                        df_ot.to_excel(writer, index=False, sheet_name='ScheduleShift')
+                    buffer_ot = io.BytesIO()
+                    df_export_ot = df_ot.drop(columns=["Hapus"]) if "Hapus" in df_ot.columns else df_ot
+                    with pd.ExcelWriter(buffer_ot, engine='openpyxl') as writer:
+                        df_export_ot.to_excel(writer, index=False, sheet_name='ScheduleShift')
                     st.download_button(
-                        label="📥 Download Excel - Schedule Shift",
-                        data=buffer.getvalue(),
+                        label="📥 Download Excel",
+                        data=buffer_ot.getvalue(),
                         file_name=f"Rekap_ScheduleShift_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="secondary",
                         key="dl_excel_shift"
                     )
-
-                # FITUR DELETE DATA SHIFT
-                with col_del_ot:
-                    confirm_del_shift = st.checkbox("Konfirmasi hapus seluruh data Schedule Shift", key="chk_del_shift")
-                    if st.button("🗑️ Hapus Semua Data ScheduleShift", type="primary", key="btn_del_shift", disabled=not confirm_del_shift):
-                        with conn.engine.begin() as connection:
-                            connection.execute(text("TRUNCATE TABLE db_shift RESTART IDENTITY;"))
-                        st.success("Seluruh data Schedule Shift berhasil dihapus!")
-                        st.rerun()
             else:
                 st.info("Belum ada data Schedule Shift di database.")
         except Exception as err:
             st.error(f"Gagal membaca data db_shift: {err}")
 
-    # --- TAB 2: DATA ABSENSI ---
-    with tab2:
-        st.subheader("Data Attendence")
-        try:
-            df_abs = conn.query("SELECT * FROM db_absensi ORDER BY id DESC;", ttl="0s")
-            if len(df_abs) > 0:
-                st.dataframe(df_abs, use_container_width=True)
-
-                col_dl_abs, col_del_abs = st.columns([2, 1])
-                with col_dl_abs:
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                        df_abs.to_excel(writer, index=False, sheet_name='Absensi')
-                    st.download_button(
-                        label="📥 Download Excel - Attendance",
-                        data=buffer.getvalue(),
-                        file_name=f"Rekap_Absensi_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="secondary",
-                        key="dl_excel_abs"
-                    )
-
-                # FITUR DELETE DATA ABSENSI
-                with col_del_abs:
-                    confirm_del_abs = st.checkbox("Konfirmasi hapus seluruh data Attendance", key="chk_del_abs")
-                    if st.button("🗑️ Hapus Semua Data Attendence", type="primary", key="btn_del_abs", disabled=not confirm_del_abs):
-                        with conn.engine.begin() as connection:
-                            connection.execute(text("TRUNCATE TABLE db_absensi RESTART IDENTITY;"))
-                        st.success("Seluruh data Attendence berhasil dihapus!")
-                        st.rerun()
-            else:
-                st.info("Belum ada data Attendence di database.")
-        except Exception as err:
-            st.error(f"Gagal membaca data db_absensi: {err}")
-
-    # --- TAB 3: DAILY REPORT ---
+    # -----------------------------------------------------------------
+    # TAB 3: DATA DAILY REPORT
+    # -----------------------------------------------------------------
     with tab3:
         st.subheader("Data Daily Report")
         try:
             df_dr = conn.query("SELECT * FROM db_daily_report ORDER BY id DESC;", ttl="0s")
             if len(df_dr) > 0:
-                st.dataframe(df_dr, use_container_width=True)
+                if "Hapus" not in df_dr.columns:
+                    df_dr.insert(0, "Hapus", False)
 
-                col_dl_dr, col_del_dr = st.columns([2, 1])
+                edited_df_dr = st.data_editor(
+                    df_dr,
+                    hide_index=True,
+                    use_container_width=True,
+                    key="editor_daily_report",
+                    disabled=["id", "waktu_submit"]
+                )
+
+                col_save_dr, col_del_dr, col_dl_dr = st.columns([2, 2, 2])
+
+                # 1. SIMPAN EDIT
+                with col_save_dr:
+                    if st.button("💾 Simpan Perubahan Edit", key="btn_save_dr", type="primary"):
+                        with conn.engine.begin() as connection:
+                            for idx, row in edited_df_dr.iterrows():
+                                query = text("""
+                                    UPDATE db_daily_report 
+                                    SET tanggal = :tanggal, shift = :shift, nama = :nama, 
+                                        job_kategori = :job_kategori, jam_regular = :jam_regular, 
+                                        jam_ot = :jam_ot, box_regular = :box_regular, 
+                                        box_ot = :box_ot, total_box_job = :total_box_job, 
+                                        keterangan = :keterangan
+                                    WHERE id = :id;
+                                """)
+                                connection.execute(query, {
+                                    "tanggal": str(row.get("tanggal", "")),
+                                    "shift": row.get("shift", ""),
+                                    "nama": row.get("nama", ""),
+                                    "job_kategori": row.get("job_kategori", ""),
+                                    "jam_regular": float(row.get("jam_regular", 0)),
+                                    "jam_ot": float(row.get("jam_ot", 0)),
+                                    "box_regular": int(row.get("box_regular", 0)),
+                                    "box_ot": int(row.get("box_ot", 0)),
+                                    "total_box_job": int(row.get("total_box_job", 0)),
+                                    "keterangan": row.get("keterangan", ""),
+                                    "id": int(row.get("id"))
+                                })
+                        st.success("Perubahan data Daily Report berhasil disimpan!")
+                        st.rerun()
+
+                # 2. HAPUS BARIS TERCEKLIS
+                with col_del_dr:
+                    rows_to_delete_dr = edited_df_dr[edited_df_dr["Hapus"] == True]
+                    num_del_dr = len(rows_to_delete_dr)
+                    if st.button(f"🗑️ Hapus ({num_del_dr}) Baris Terceklis", key="btn_del_selected_dr", disabled=(num_del_dr == 0)):
+                        ids_to_del = rows_to_delete_dr["id"].tolist()
+                        with conn.engine.begin() as connection:
+                            for item_id in ids_to_del:
+                                connection.execute(text("DELETE FROM db_daily_report WHERE id = :id;"), {"id": int(item_id)})
+                        st.success(f"{num_del_dr} baris data Daily Report berhasil dihapus!")
+                        st.rerun()
+
+                # 3. DOWNLOAD EXCEL
                 with col_dl_dr:
-                    buffer = io.BytesIO()
-                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                        df_dr.to_excel(writer, index=False, sheet_name='DailyReport')
+                    buffer_dr = io.BytesIO()
+                    df_export_dr = df_dr.drop(columns=["Hapus"]) if "Hapus" in df_dr.columns else df_dr
+                    with pd.ExcelWriter(buffer_dr, engine='openpyxl') as writer:
+                        df_export_dr.to_excel(writer, index=False, sheet_name='DailyReport')
                     st.download_button(
-                        label="📥 Download Excel - Daily Report",
-                        data=buffer.getvalue(),
+                        label="📥 Download Excel",
+                        data=buffer_dr.getvalue(),
                         file_name=f"Rekap_DailyReport_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        type="secondary",
                         key="dl_excel_dr"
                     )
-
-                # FITUR DELETE DATA DAILY REPORT
-                with col_del_dr:
-                    confirm_del_dr = st.checkbox("Konfirmasi hapus seluruh data Daily Report", key="chk_del_dr")
-                    if st.button("🗑️ Hapus Semua Data Daily Report", type="primary", key="btn_del_dr", disabled=not confirm_del_dr):
-                        with conn.engine.begin() as connection:
-                            connection.execute(text("TRUNCATE TABLE db_daily_report RESTART IDENTITY;"))
-                        st.success("Seluruh data Daily Report berhasil dihapus!")
-                        st.rerun()
             else:
                 st.info("Belum ada data Daily Report di database.")
         except Exception as err:
             st.error(f"Gagal membaca data db_daily_report: {err}")
 
     st.write("---")
-    if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_rekap_main"):
+    if st.button("⬅️ Kembali ke Menu Utama", use_container_width=True, key="back_rekap"):
         st.session_state.page = 'select_menu'
         st.rerun()
