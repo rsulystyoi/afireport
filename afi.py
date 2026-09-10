@@ -236,7 +236,7 @@ elif st.session_state.page == 'select_menu':
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
-    st.title("📝 Attendance Page")
+    st.title("📋 Attendance Page")
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
     p = st.session_state.get('menu_params', {})
     
@@ -365,7 +365,7 @@ elif st.session_state.page == 'input_absensi':
 elif st.session_state.page == 'input_overtime':    
     # Header Judul PT. AFI
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
-    st.title("📝 Schedule Shift")
+    st.title("⏰ Schedule Shift")
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
     st.write("---")
     st.write("")
@@ -848,7 +848,7 @@ elif st.session_state.page == 'rekap_data':
 
                 # Simpan Edit di Kanan
                 with col_right1_d:
-                    if st.button("💾 Simpan Perubahan Edit", key="btn_save_dr", type="primary", use_container_width=True):
+                    if st.button("💾 Simpan Perubahan", key="btn_save_dr", type="primary", use_container_width=True):
                         with conn.engine.begin() as connection:
                             for idx, row in edited_df_dr.iterrows():
                                 query = text("""
@@ -880,7 +880,7 @@ elif st.session_state.page == 'rekap_data':
                 with col_right2_d:
                     rows_to_delete_dr = edited_df_dr[edited_df_dr["Hapus"] == True]
                     num_del_dr = len(rows_to_delete_dr)
-                    if st.button(f"🗑️ Hapus ({num_del_dr}) Baris Terceklis", key="btn_del_selected_dr", disabled=(num_del_dr == 0), use_container_width=True):
+                    if st.button(f"🗑️ Hapus ({num_del_dr})", key="btn_del_selected_dr", disabled=(num_del_dr == 0), use_container_width=True):
                         ids_to_del = rows_to_delete_dr["id"].tolist()
                         with conn.engine.begin() as connection:
                             for item_id in ids_to_del:
