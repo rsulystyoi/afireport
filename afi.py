@@ -687,7 +687,7 @@ elif st.session_state.page == 'rekap_data':
 
                 # Simpan Edit di Kanan
                 with col_right1_s:
-                    if st.button("💾 Simpan Perubahan Edit", key="btn_save_ot", type="primary", use_container_width=True):
+                    if st.button("💾 Simpan Perubahan", key="btn_save_ot", type="primary", use_container_width=True):
                         with conn.engine.begin() as connection:
                             for idx, row in edited_df_ot.iterrows():
                                 query = text("""
@@ -715,7 +715,7 @@ elif st.session_state.page == 'rekap_data':
                 with col_right2_s:
                     rows_to_delete_ot = edited_df_ot[edited_df_ot["Hapus"] == True]
                     num_del_ot = len(rows_to_delete_ot)
-                    if st.button(f"🗑️ Hapus ({num_del_ot}) Baris Terceklis", key="btn_del_selected_ot", disabled=(num_del_ot == 0), use_container_width=True):
+                    if st.button(f"🗑️ Hapus ({num_del_ot})", key="btn_del_selected_ot", disabled=(num_del_ot == 0), use_container_width=True):
                         ids_to_del = rows_to_delete_ot["id"].tolist()
                         with conn.engine.begin() as connection:
                             for item_id in ids_to_del:
@@ -770,7 +770,7 @@ elif st.session_state.page == 'rekap_data':
 
                 # Simpan Edit di Kanan
                 with col_right1:
-                    if st.button("💾 Simpan Perubahan Edit", key="btn_save_abs", type="primary", use_container_width=True):
+                    if st.button("💾 Simpan Perubahan", key="btn_save_abs", type="primary", use_container_width=True):
                         with conn.engine.begin() as connection:
                             for idx, row in edited_df_abs.iterrows():
                                 query = text("""
@@ -797,7 +797,7 @@ elif st.session_state.page == 'rekap_data':
                 with col_right2:
                     rows_to_delete_abs = edited_df_abs[edited_df_abs["Hapus"] == True]
                     num_del_abs = len(rows_to_delete_abs)
-                    if st.button(f"🗑️ Hapus ({num_del_abs}) Baris Terceklis", key="btn_del_selected_abs", disabled=(num_del_abs == 0), use_container_width=True):
+                    if st.button(f"🗑️ Hapus ({num_del_abs})", key="btn_del_selected_abs", disabled=(num_del_abs == 0), use_container_width=True):
                         ids_to_del = rows_to_delete_abs["id"].tolist()
                         with conn.engine.begin() as connection:
                             for item_id in ids_to_del:
