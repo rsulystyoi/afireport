@@ -638,7 +638,6 @@ elif st.session_state.page == 'input_daily_report':
 # =====================================================================
 elif st.session_state.page == 'rekap_data':
     st.title("Summary Report")
-    st.caption("Lihat, edit data langsung, atau centang baris yang ingin dihapus.")
     st.write("---")
 
     # 📌 URUTAN TAB: 1. Schedule Shift, 2. Attendance, 3. Daily Report
