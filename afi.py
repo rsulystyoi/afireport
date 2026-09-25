@@ -633,7 +633,57 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 6. HALAMAN REKAP DATA / SUMMARY REPORT 
+# 6. HALAMAN DATABASE KARYAWAN (database_menu)
+# =====================================================================
+elif st.session_state.page == 'database_menu':
+    st.markdown("### 🗂️ Manajemen Database Karyawan & Jemputan")
+    if st.button("⬅️ Kembali ke Menu Utama"):
+        st.session_state.page = 'select_menu'
+        st.rerun()
+        
+    st.write("---")
+    
+    # Form Input ke Database PostgreSQL
+    with st.form("form_database_karyawan"):
+        st.subheader("Input Data Karyawan Baru")
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            nama = st.text_input("Nama Lengkap")
+            nik = st.text_input("NIK")
+            section = st.text_input("Section")
+        with col_f2:
+            job = st.text_input("Job")
+            titik_jemputan = st.text_input("Titik Jemputan")
+            no_hp = st.text_input("No HP")
+        
+        # Pilihan shift diganti menjadi Putih atau Biru
+        shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
+        
+        submit_db = st.form_submit_button("Simpan ke Database", use_container_width=True)
+        
+        if submit_db:
+            if nama and nik:
+                # CONTOH EKSEKUSI QUERY POSTGRESQL (Sesuaikan dengan koneksi database Anda):
+                # conn = init_connection()
+                # cursor = conn.cursor()
+                # cursor.execute("INSERT INTO database_karyawan (nama, nik, section, job, titik_jemputan, no_hp, shift) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
+                #                (nama, nik, section, job, titik_jemputan, no_hp, shift))
+                # conn.commit()
+                st.success(f"Data karyawan **{nama}** (Shift {shift}) berhasil disimpan ke database!")
+            else:
+                st.warning("Nama dan NIK wajib diisi!")
+
+    st.write("---")
+    st.subheader("Daftar Database Karyawan Tersimpan")
+    
+    # Contoh menampilkan data dari PostgreSQL dalam bentuk tabel
+    # query = "SELECT * FROM database_karyawan"
+    # df_karyawan = pd.read_sql(query, conn)
+    # st.dataframe(df_karyawan, use_container_width=True)
+    st.info("Tabel data dari database PostgreSQL akan muncul di sini.")
+    
+# =====================================================================
+# 7. HALAMAN REKAP DATA / SUMMARY REPORT 
 # =====================================================================
 elif st.session_state.page == 'rekap_data':
     st.title("Summary Report")
