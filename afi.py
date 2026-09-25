@@ -637,10 +637,6 @@ elif st.session_state.page == 'input_daily_report':
 # =====================================================================
 elif st.session_state.page == 'database_menu':
     st.markdown("### 🗂️ Manajemen Database Karyawan & Jemputan")
-    if st.button("⬅️ Kembali ke Menu Utama"):
-        st.session_state.page = 'select_menu'
-        st.rerun()
-        
     st.write("---")
     
     # Form Input ke Database PostgreSQL
@@ -659,27 +655,34 @@ elif st.session_state.page == 'database_menu':
         # Pilihan shift diganti menjadi Putih atau Biru
         shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
         
-        submit_db = st.form_submit_button("Simpan ke Database", use_container_width=True)
+        st.write("---")
+        
+        # Membuat 2 kolom untuk tombol sejajar (Submit Merah & Kembali Biru)
+        col_btn1, col_btn2 = st.columns(2)
+        
+        with col_btn1:
+            # Tombol Submit (Merah menggunakan markdown CSS Streamlit atau tombol form biasa)
+            submit_db = st.form_submit_button("Submit Database", use_container_width=True)
+            
+        with col_btn2:
+            # Tombol Kembali ke Menu Utama
+            kembali_menu = st.form_submit_button("Kembali ke Menu Utama", use_container_width=True)
         
         if submit_db:
             if nama and nik:
-                # CONTOH EKSEKUSI QUERY POSTGRESQL (Sesuaikan dengan koneksi database Anda):
-                # conn = init_connection()
-                # cursor = conn.cursor()
-                # cursor.execute("INSERT INTO database_karyawan (nama, nik, section, job, titik_jemputan, no_hp, shift) VALUES (%s, %s, %s, %s, %s, %s, %s)", 
-                #                (nama, nik, section, job, titik_jemputan, no_hp, shift))
-                # conn.commit()
+                # LOGIKA POSTGRESQL INSERT DISINI
+                # Contoh:
+                # cursor.execute("INSERT INTO database_karyawan VALUES (...)")
                 st.success(f"Data karyawan **{nama}** (Shift {shift}) berhasil disimpan ke database!")
             else:
                 st.warning("Nama dan NIK wajib diisi!")
+                
+        if kembali_menu:
+            st.session_state.page = 'select_menu'
+            st.rerun()
 
     st.write("---")
     st.subheader("Daftar Database Karyawan Tersimpan")
-    
-    # Contoh menampilkan data dari PostgreSQL dalam bentuk tabel
-    # query = "SELECT * FROM database_karyawan"
-    # df_karyawan = pd.read_sql(query, conn)
-    # st.dataframe(df_karyawan, use_container_width=True)
     st.info("Tabel data dari database PostgreSQL akan muncul di sini.")
     
 # =====================================================================
