@@ -217,7 +217,7 @@ elif st.session_state.page == 'select_menu':
         st.rerun()
 
     if st.button("Database Karyawan", use_container_width=True):
-        st-session_state.page = 'database_menu'
+        st.session_state.page = 'database_menu'
         st.rerun()
 
     st.write("---")
