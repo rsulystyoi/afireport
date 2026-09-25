@@ -636,12 +636,12 @@ elif st.session_state.page == 'input_daily_report':
 # 6. HALAMAN DATABASE KARYAWAN (database_menu)
 # =====================================================================
 elif st.session_state.page == 'database_menu':
-    st.markdown("### 🗂️ Manajemen Database Karyawan & Jemputan")
+    st.markdown("### 🗂️ Database Karyawan")
     st.write("---")
     
     # Form Input ke Database PostgreSQL
     with st.form("form_database_karyawan"):
-        st.subheader("Input Data Karyawan Baru")
+        st.subheader("Input Data Karyawan")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             nama = st.text_input("Nama Lengkap")
@@ -682,7 +682,7 @@ elif st.session_state.page == 'database_menu':
             st.rerun()
 
     st.write("---")
-    st.subheader("Daftar Database Karyawan Tersimpan")
+    st.subheader("Daftar Database Karyawan")
     st.info("Tabel data dari database PostgreSQL akan muncul di sini.")
     
 # =====================================================================
