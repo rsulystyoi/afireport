@@ -216,9 +216,13 @@ elif st.session_state.page == 'select_menu':
         st.session_state.page = 'rekap_data'
         st.rerun()
 
+    if st.button("Database Karyawan", use_container_width=True):
+        st-session_state.page = 'database_menu'
+        st.rerun()
+
     st.write("---")
 
-    # BARIS PALING BAWAH: Sub-kolom untuk menggeser tombol Logout ke Pojok Kanan Bawah
+    # TOMBOL LOGOUT
     col_bot_left, col_bot_right = st.columns([6, 1])
     with col_bot_right:
         if st.button("Logout", key="btn_logout_bottom_right", use_container_width=True, type="primary"):
