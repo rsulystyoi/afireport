@@ -655,7 +655,6 @@ elif st.session_state.page == 'database_menu':
         # Pilihan shift diganti menjadi Putih atau Biru
         shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
         
-        st.write("---")
        # Tombol Submit Database di dalam form
         submit_db = st.form_submit_button("Submit Database", use_container_width=True)
         
