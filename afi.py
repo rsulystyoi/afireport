@@ -679,8 +679,8 @@ elif st.session_state.page == 'database_menu':
             st.rerun()
 
     st.write("---")
-    st.subheader("Daftar Database Karyawan Tersimpan")
-    st.info("Tabel data dari database PostgreSQL akan muncul di sini.") 
+    st.subheader("Nantinya Database ada Disini nih..")
+    st.info("database belum muncul, masih dalam tahap oprek oprek") 
        
 # =====================================================================
 # 7. HALAMAN REKAP DATA / SUMMARY REPORT 
