@@ -105,7 +105,7 @@ except Exception as e:
 # --- FUNGSI RESET DATA SHIFT SCHEDULE (SCHEDULE SHIFT) ---
 def reset_data_ot():
     st.session_state.data_rows_ot = [
-        {"nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "Shift 1"}
+        {"nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "1"}
     ]
     for key in list(st.session_state.keys()):
         if (key.startswith("ot_nama_") or key.startswith("ot_nik_") or key.startswith("ot_section_") or 
@@ -122,7 +122,7 @@ if 'menu_params' not in st.session_state:
 
 if 'data_rows_ot' not in st.session_state:
     st.session_state.data_rows_ot = [
-        {"nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "Shift 1"}
+        {"nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "1"}
     ]
 
 if 'dr_step' not in st.session_state:
@@ -136,6 +136,7 @@ if 'dr_work_type' not in st.session_state:
 # 1. HALAMAN LOGIN 
 # =====================================================================
 if st.session_state.page == 'login':
+    # 🖼️ SISIPKAN KODE CSS BACKGROUND GAMBAR DI SINI
     bg_base64 = get_base64_image("afd.jpeg")
     if bg_base64:
         st.markdown(f"""
@@ -159,10 +160,12 @@ if st.session_state.page == 'login':
             </style>
         """, unsafe_allow_html=True)
 
+    # --- KONTEN HALAMAN LOGIN EKSISTING ANDA ---
     st.markdown("<h2 style='text-align: center;'>QD - Report</h2>", unsafe_allow_html=True)
     st.markdown("<h4 style='text-align: center;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.write("---")
     
+    # Input Username dan Password
     nama_user = st.text_input("Username :")
     nik_user = st.text_input("Password :", type="password")
     
@@ -175,6 +178,7 @@ if st.session_state.page == 'login':
             st.rerun()
         else:
             st.error("Username atau Password salah!")
+
 
 # =====================================================================
 # 2. HALAMAN SELECT MENU
@@ -218,6 +222,7 @@ elif st.session_state.page == 'select_menu':
 
     st.write("---")
 
+    # TOMBOL LOGOUT
     col_bot_left, col_bot_right = st.columns([6, 1])
     with col_bot_right:
         if st.button("Logout", key="btn_logout_bottom_right", use_container_width=True, type="primary"):
@@ -225,7 +230,6 @@ elif st.session_state.page == 'select_menu':
             st.session_state.page = 'login'
             st.success("Berhasil Logout!")
             st.rerun()
-
 # =====================================================================
 # 3. HALAMAN INPUT ABSENSI 
 # =====================================================================
@@ -233,25 +237,32 @@ elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📋 Attendance Page")
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
+    p = st.session_state.get('menu_params', {})
     
     st.write("---")
     
+    # 1. PERIODE 2 KOLOM TANGGAL TERPISAH
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         tgl_mulai_abs = st.date_input("Dari Tanggal :", value=datetime.now(), key="abs_tgl_mulai")
     with col_p2:
         tgl_selesai_abs = st.date_input("Sampai Tanggal :", value=datetime.now(), key="abs_tgl_selesai")
     
+    # Format teks periode
     str_mulai_abs = tgl_mulai_abs.strftime("%d/%m/%Y")
     str_selesai_abs = tgl_selesai_abs.strftime("%d/%m/%Y")
-    periode_abs_val = str_mulai_abs if str_mulai_abs == str_selesai_abs else f"{str_mulai_abs} s/d {str_selesai_abs}"
+    if str_mulai_abs == str_selesai_abs:
+        periode_abs_val = str_mulai_abs
+    else:
+        periode_abs_val = f"{str_mulai_abs} s/d {str_selesai_abs}"
 
+    # 2. MENGAMBIL TOTAL MEMBER DARI DATABASE DB_SHIFT
     total_member_db = 0
     try:
         df_shift_member = conn.query("SELECT COUNT(*) as total FROM db_shift;", ttl="0s")
         if len(df_shift_member) > 0:
             total_member_db = int(df_shift_member['total'].iloc[0])
-    except Exception:
+    except Exception as e:
         total_member_db = 0
 
     col_a, col_b = st.columns(2)
@@ -262,6 +273,7 @@ elif st.session_state.page == 'input_absensi':
         
     total_member = total_member_db
         
+    # 3. MENGHITUNG TOTAL TIDAK HADIR UNTUK RINGKASAN
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
     
     if 'jumlah_input_absensi' not in st.session_state:
@@ -274,10 +286,13 @@ elif st.session_state.page == 'input_absensi':
             if nama_val.strip() != "":
                 total_tidak_hadir += 1
 
-    total_hadir = max(0, total_member - total_tidak_hadir)
+    total_hadir = total_member - total_tidak_hadir
+    if total_hadir < 0:
+        total_hadir = 0
 
     st.write("---")
 
+    # 📌 DASHBOARD KOTAK RINGKASAN DI ATAS
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
         st.markdown(f"<div style='background-color:#e2e3e5; padding:10px; border-radius:5px; text-align:center;'><b>Total Member</b><br><span style='font-size:20px;'>{total_member}</span></div>", unsafe_allow_html=True)
@@ -289,6 +304,7 @@ elif st.session_state.page == 'input_absensi':
     st.write("---")
     st.subheader("Detail Ketidakhadiran / Kondisi:")
 
+    # 4. RENDER INPUT NAMA BERDASARKAN KATEGORI
     data_nama_terinput = {}
 
     for kat in kategori_absensi:
@@ -317,6 +333,7 @@ elif st.session_state.page == 'input_absensi':
                 for kat, list_nama in data_nama_terinput.items():
                     for nm in list_nama:
                         if nm.strip() != "":
+                            # QUERY HANYA MEMASUKKAN KOLOM YANG TERSEDIA DI TABEL DB_ABSENSI
                             query = text("""
                                 INSERT INTO db_absensi (user_input, tanggal, shift, leader, total_member, kategori, nama_karyawan)
                                 VALUES (:user_input, :tanggal, :shift, :leader, :total_member, :kategori, :nama_karyawan)
@@ -345,28 +362,38 @@ elif st.session_state.page == 'input_absensi':
 # 4. HALAMAN SCHEDULE SHIFT
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
+    # Header Judul PT. AFI
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("⏰ Schedule Shift")
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
     st.write("---")
     st.write("")
     
+    # PERIODE 2 KOLOM TANGGAL TERPISAH
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         tgl_mulai_input = st.date_input("Dari Tanggal :", value=datetime.now(), key="ot_tgl_mulai")
     with col_p2:
         tgl_selesai_input = st.date_input("Sampai Tanggal :", value=datetime.now(), key="ot_tgl_selesai")
     
+    # Format teks periode otomatis
     str_mulai = tgl_mulai_input.strftime("%d/%m/%Y")
     str_selesai = tgl_selesai_input.strftime("%d/%m/%Y")
-    periode_val = str_mulai if str_mulai == str_selesai else f"{str_mulai} s/d {str_selesai}"
+    if str_mulai == str_selesai:
+        periode_val = str_mulai
+    else:
+        periode_val = f"{str_mulai} s/d {str_selesai}"
 
     st.write("---")
+    
+    # Sub-header Tabel Database Quality Member
     st.markdown("<div style='background-color:#e9ecef; border:1px solid #ccc; text-align:center; padding:6px; font-weight:bold; font-size:15px; border-radius:4px;'>Database Quality Member</div>", unsafe_allow_html=True)
     st.write("")
     
+    # PROPORSI RASIO DIPERBAIKI SANGAT PAS
     ratio_cols = [0.6, 2.0, 1.1, 1.1, 1.5, 1.5, 1.3, 1.0, 0.5]
 
+    # Header Judul Kolom
     col_l0, col_l1, col_l2, col_l3, col_l4, col_l5, col_l6, col_l7, col_l8 = st.columns(ratio_cols)
     col_l0.markdown("<div class='table-header'>No</div>", unsafe_allow_html=True)
     col_l1.markdown("<div class='table-header' style='text-align:left;'>Nama</div>", unsafe_allow_html=True)
@@ -378,6 +405,7 @@ elif st.session_state.page == 'input_overtime':
     col_l7.markdown("<div class='table-header' style='text-align:left;'>Shift</div>", unsafe_allow_html=True)
     col_l8.markdown("<div class='table-header'>[+]</div>", unsafe_allow_html=True)
 
+    # Render Baris Input Dinamis
     for i, row in enumerate(st.session_state.data_rows_ot):
         c0, c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(ratio_cols)
         
@@ -397,7 +425,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.data_rows_ot[i]["nohp"] = st.text_input("No HP", value=row.get("nohp", ""), key=f"ot_nohp_{i}", label_visibility="collapsed", placeholder="08xxx")
         with c7:
             opts_shift = ["Shift 1", "Shift 2", "Non-Shift"]
-            s_val = str(row.get("shift", "Shift 1"))
+            s_val = str(row.get("shift", "1"))
             idx_s = opts_shift.index(s_val) if s_val in opts_shift else 0
             st.session_state.data_rows_ot[i]["shift"] = st.selectbox("Shift", options=opts_shift, index=idx_s, key=f"ot_shift_{i}", label_visibility="collapsed")
         with c8:
@@ -410,10 +438,10 @@ elif st.session_state.page == 'input_overtime':
                         st.session_state.data_rows_ot[k]["job"] = st.session_state.get(f"ot_job_{k}", "")
                         st.session_state.data_rows_ot[k]["jemputan"] = st.session_state.get(f"ot_jemputan_{k}", "")
                         st.session_state.data_rows_ot[k]["nohp"] = st.session_state.get(f"ot_nohp_{k}", "")
-                        st.session_state.data_rows_ot[k]["shift"] = st.session_state.get(f"ot_shift_{k}", "Shift 1")
+                        st.session_state.data_rows_ot[k]["shift"] = st.session_state.get(f"ot_shift_{k}", "1")
                     
                     st.session_state.data_rows_ot.append({
-                        "nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "Shift 1"
+                        "nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "1"
                     })
                     st.rerun()
 
@@ -451,7 +479,6 @@ elif st.session_state.page == 'input_overtime':
             reset_data_ot()
             st.session_state.page = 'select_menu'
             st.rerun()
-
 # =====================================================================
 # 5. HALAMAN INPUT DAILY REPORT 
 # =====================================================================
@@ -461,18 +488,19 @@ elif st.session_state.page == 'input_daily_report':
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
     st.write("---")
 
+    # 1. HEADER: HARI / TANGGAL & SHIFT
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
     with col_hdr2:
         shift_dr = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"], key="dr_shift_sel")
 
-    # PERBAIKAN STABILITAS QUERY MENGGUNAKAN text()
+    # 2. QUERY DAFTAR KARYAWAN BERDASARKAN SHIFT TERPILIH DARI DB_SHIFT
     try:
-        sql_str = "SELECT DISTINCT nama FROM db_shift WHERE LOWER(shift) = LOWER(:shift_pilihan) AND nama IS NOT NULL AND nama != '' ORDER BY nama ASC;"
-        df_nama_shift = conn.query(sql_str, params={"shift_pilihan": shift_dr}, ttl="0s")
+        query_nama = text("SELECT DISTINCT nama FROM db_shift WHERE LOWER(shift) = LOWER(:shift_pilihan) AND nama IS NOT NULL AND nama != '' ORDER BY nama ASC;")
+        df_nama_shift = conn.query(query_nama.text, params={"shift_pilihan": shift_dr}, ttl="0s")
         list_nama_shift = df_nama_shift['nama'].tolist() if len(df_nama_shift) > 0 else []
-    except Exception:
+    except Exception as e:
         list_nama_shift = []
 
     total_mp_shift = len(list_nama_shift)
@@ -495,7 +523,9 @@ elif st.session_state.page == 'input_daily_report':
             "Sortir 100%", "Leader", "Others"
         ]
 
+        # Inisialisasi struktur data jumlah pekerjaan per karyawan
         if "dr_user_jobs" not in st.session_state or st.session_state.get("dr_last_shift_resp") != shift_dr:
+            # Mengeset default 1 pekerjaan per karyawan
             st.session_state.dr_user_jobs = {nama: [1] for nama in list_nama_shift}
             st.session_state.dr_last_shift_resp = shift_dr
 
@@ -504,14 +534,16 @@ elif st.session_state.page == 'input_daily_report':
 
         records_to_insert = []
 
+        # LOOPING FORM PER KARYAWAN
         for idx, nama in enumerate(list_nama_shift):
             st.markdown(f"##### 👤 **{idx+1}. {nama.upper()}**")
             
             job_rows = st.session_state.dr_user_jobs.get(nama, [1])
 
             for j_idx in range(len(job_rows)):
-                pfx = f"dr_{shift_dr}_{nama}_{j_idx}"
+                pfx = f"dr_{shift_dr}_{nama}_{j_idx}" # Key unik per widget
 
+                # Membagi form dalam 6 Kolom Sejajar
                 c_job, c_jreg, c_jot, c_breg, c_bot, c_tot = st.columns([2.5, 1.2, 1.2, 1.2, 1.2, 1.2])
 
                 with c_job:
@@ -525,12 +557,15 @@ elif st.session_state.page == 'input_daily_report':
                 with c_bot:
                     box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
                 with c_tot:
+                    # KALKULASI TOTAL BOX LANGSUNG SECARA LIVE
                     tot_box = box_reg + box_ot
                     st.markdown("<label style='font-size:14px;'>Total Box</label>", unsafe_allow_html=True)
                     st.markdown(f"<div style='background-color:#e9ecef; padding:6px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #ced4da; color:#495057;'>{tot_box}</div>", unsafe_allow_html=True)
 
+                # Keterangan Opsional per Job
                 ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
 
+                # Simpan ke daftar pengiriman jika job dipilih atau ada isi angka
                 if job_val != "- Pilih Job -" or jam_reg > 0 or jam_ot > 0 or tot_box > 0:
                     records_to_insert.append({
                         "user_input": st.session_state.user_info.get("nama", ""),
@@ -548,6 +583,7 @@ elif st.session_state.page == 'input_daily_report':
                         "keterangan": ket_val
                     })
 
+            # Tombol Tambah Baris Job Khusus untuk Karyawan Ini
             col_add_btn, _ = st.columns([2, 5])
             with col_add_btn:
                 if st.button(f"➕ Tambah Job ({nama})", key=f"btn_add_job_{nama}"):
@@ -556,6 +592,7 @@ elif st.session_state.page == 'input_daily_report':
 
             st.write("---")
 
+        # TOMBOL AKSI UTAMA DI BAGIAN BAWAH
         col_submit1, col_submit2 = st.columns(2)
 
         with col_submit1:
@@ -575,6 +612,7 @@ elif st.session_state.page == 'input_daily_report':
                         for item in records_to_insert:
                             connection.execute(query, item)
 
+                    # Reset state setelah simpan
                     if "dr_user_jobs" in st.session_state:
                         del st.session_state["dr_user_jobs"]
 
@@ -594,8 +632,56 @@ elif st.session_state.page == 'input_daily_report':
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_empty"):
             st.session_state.page = 'select_menu'
             st.rerun()
+# =====================================================================
+# 6. HALAMAN DATABASE KARYAWAN (database_menu)
+# =====================================================================
+elif st.session_state.page == 'database_menu':
+    st.markdown("### 🗂️ Database Karyawan")
+    st.write("---")
+    
+    # Form Input ke Database PostgreSQL
+    with st.form("form_database_karyawan"):
+        st.subheader("Input Data Karyawan")
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            nama = st.text_input("Nama Lengkap")
+            nik = st.text_input("NIK")
+            section = st.text_input("Section")
+        with col_f2:
+            job = st.text_input("Job")
+            titik_jemputan = st.text_input("Titik Jemputan")
+            no_hp = st.text_input("No HP")
+        
+        # Pilihan shift diganti menjadi Putih atau Biru
+        shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
+        
+       # Tombol Submit Database di dalam form
+        submit_db = st.form_submit_button("Submit Database", use_container_width=True)
+        
+        if submit_db:
+            if nama and nik:
+                # LOGIKA POSTGRESQL INSERT DISINI
+                st.success(f"Data karyawan **{nama}** (Shift {shift}) berhasil disimpan ke database!")
+            else:
+                st.warning("Nama dan NIK wajib diisi!")
 
+    # --- TOMBOL NAVIGASI DI LUAR FORM (Agar Berwarna Biru) ---
+    col_nav1, col_nav2 = st.columns(2)
+    
+    with col_nav1:
+        # Kosong atau bisa diisi tombol lain jika diperlukan
+        pass
+        
+    with col_nav2:
+        # Tombol Kembali ke Menu Utama di luar form (Otomatis Biru)
+        if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_db_menu"):
+            st.session_state.page = 'select_menu'
+            st.rerun()
 
+    st.write("---")
+    st.subheader("Nantinya Database ada Disini nih..")
+    st.info("database belum muncul, masih dalam tahap oprek oprek") 
+       
 # =====================================================================
 # 7. HALAMAN REKAP DATA / SUMMARY REPORT 
 # =====================================================================
@@ -603,6 +689,7 @@ elif st.session_state.page == 'rekap_data':
     st.title("Summary Report")
     st.write("---")
 
+    # 📌 URUTAN TAB: 1. Schedule Shift, 2. Attendance, 3. Daily Report
     tab1, tab2, tab3 = st.tabs(["⏰ Data Schedule Shift", "📋 Data Attendance", "📝 Data Daily Report"])
 
     # -----------------------------------------------------------------
@@ -631,6 +718,7 @@ elif st.session_state.page == 'rekap_data':
                 st.write("")
                 col_left_s, col_mid_s, col_right1_s, col_right2_s = st.columns([2.5, 2, 2.5, 2.5])
 
+                # Download Excel di Kiri
                 with col_left_s:
                     buffer_ot = io.BytesIO()
                     df_export_ot = df_ot.drop(columns=["Hapus"]) if "Hapus" in df_ot.columns else df_ot
@@ -645,6 +733,7 @@ elif st.session_state.page == 'rekap_data':
                         use_container_width=True
                     )
 
+                # Simpan Edit di Kanan
                 with col_right1_s:
                     if st.button("💾 Simpan Perubahan", key="btn_save_ot", type="primary", use_container_width=True):
                         with conn.engine.begin() as connection:
@@ -657,19 +746,20 @@ elif st.session_state.page == 'rekap_data':
                                     WHERE id = :id;
                                 """)
                                 connection.execute(query, {
-                                    "periode": str(row.get("periode", "") or ""),
-                                    "nama": str(row.get("nama", "") or ""),
-                                    "nik": str(row.get("nik", "") or ""),
-                                    "section": str(row.get("section", "") or ""),
-                                    "job": str(row.get("job", "") or ""),
-                                    "titik_jemputan": str(row.get("titik_jemputan", "") or ""),
-                                    "no_hp": str(row.get("no_hp", "") or ""),
-                                    "shift": str(row.get("shift", "") or ""),
+                                    "periode": str(row.get("periode", "")),
+                                    "nama": str(row.get("nama", "")),
+                                    "nik": str(row.get("nik", "")),
+                                    "section": str(row.get("section", "")),
+                                    "job": str(row.get("job", "")),
+                                    "titik_jemputan": str(row.get("titik_jemputan", "")),
+                                    "no_hp": str(row.get("no_hp", "")),
+                                    "shift": str(row.get("shift", "")),
                                     "id": int(row.get("id"))
                                 })
                         st.success("Perubahan data Schedule Shift berhasil disimpan!")
                         st.rerun()
 
+                # Hapus Terceklis di Kanan
                 with col_right2_s:
                     rows_to_delete_ot = edited_df_ot[edited_df_ot["Hapus"] == True]
                     num_del_ot = len(rows_to_delete_ot)
@@ -711,6 +801,7 @@ elif st.session_state.page == 'rekap_data':
                 st.write("")
                 col_left, col_mid, col_right1, col_right2 = st.columns([2.5, 2, 2.5, 2.5])
 
+                # Download Excel di Kiri
                 with col_left:
                     buffer_abs = io.BytesIO()
                     df_export_abs = df_abs.drop(columns=["Hapus"]) if "Hapus" in df_abs.columns else df_abs
@@ -725,6 +816,7 @@ elif st.session_state.page == 'rekap_data':
                         use_container_width=True
                     )
 
+                # Simpan Edit di Kanan
                 with col_right1:
                     if st.button("💾 Simpan Perubahan", key="btn_save_abs", type="primary", use_container_width=True):
                         with conn.engine.begin() as connection:
@@ -737,18 +829,19 @@ elif st.session_state.page == 'rekap_data':
                                     WHERE id = :id;
                                 """)
                                 connection.execute(query, {
-                                    "user_input": str(row.get("user_input", "") or ""),
-                                    "tanggal": str(row.get("tanggal", "") or ""),
-                                    "shift": str(row.get("shift", "") or ""),
-                                    "leader": str(row.get("leader", "") or ""),
-                                    "total_member": int(row.get("total_member", 0) if pd.notnull(row.get("total_member")) else 0),
-                                    "kategori": str(row.get("kategori", "") or ""),
-                                    "nama_karyawan": str(row.get("nama_karyawan", "") or ""),
+                                    "user_input": str(row.get("user_input", "")),
+                                    "tanggal": str(row.get("tanggal", "")),
+                                    "shift": str(row.get("shift", "")),
+                                    "leader": str(row.get("leader", "")),
+                                    "total_member": int(row.get("total_member", 0)),
+                                    "kategori": str(row.get("kategori", "")),
+                                    "nama_karyawan": str(row.get("nama_karyawan", "")),
                                     "id": int(row.get("id"))
                                 })
                         st.success("Perubahan data Absensi berhasil disimpan!")
                         st.rerun()
 
+                # Hapus Terceklis di Kanan
                 with col_right2:
                     rows_to_delete_abs = edited_df_abs[edited_df_abs["Hapus"] == True]
                     num_del_abs = len(rows_to_delete_abs)
@@ -786,6 +879,7 @@ elif st.session_state.page == 'rekap_data':
                 st.write("")
                 col_left_d, col_mid_d, col_right1_d, col_right2_d = st.columns([2.5, 2, 2.5, 2.5])
 
+                # Download Excel di Kiri
                 with col_left_d:
                     buffer_dr = io.BytesIO()
                     df_export_dr = df_dr.drop(columns=["Hapus"]) if "Hapus" in df_dr.columns else df_dr
@@ -800,6 +894,7 @@ elif st.session_state.page == 'rekap_data':
                         use_container_width=True
                     )
 
+                # Simpan Edit di Kanan
                 with col_right1_d:
                     if st.button("💾 Simpan Perubahan", key="btn_save_dr", type="primary", use_container_width=True):
                         with conn.engine.begin() as connection:
@@ -814,21 +909,22 @@ elif st.session_state.page == 'rekap_data':
                                     WHERE id = :id;
                                 """)
                                 connection.execute(query, {
-                                    "tanggal": str(row.get("tanggal", "") or ""),
-                                    "shift": str(row.get("shift", "") or ""),
-                                    "nama": str(row.get("nama", "") or ""),
-                                    "job_kategori": str(row.get("job_kategori", "") or ""),
-                                    "jam_regular": float(row.get("jam_regular", 0) if pd.notnull(row.get("jam_regular")) else 0),
-                                    "jam_ot": float(row.get("jam_ot", 0) if pd.notnull(row.get("jam_ot")) else 0),
-                                    "box_regular": int(row.get("box_regular", 0) if pd.notnull(row.get("box_regular")) else 0),
-                                    "box_ot": int(row.get("box_ot", 0) if pd.notnull(row.get("box_ot")) else 0),
-                                    "total_box_job": int(row.get("total_box_job", 0) if pd.notnull(row.get("total_box_job")) else 0),
-                                    "keterangan": str(row.get("keterangan", "") or ""),
+                                    "tanggal": str(row.get("tanggal", "")),
+                                    "shift": str(row.get("shift", "")),
+                                    "nama": str(row.get("nama", "")),
+                                    "job_kategori": str(row.get("job_kategori", "")),
+                                    "jam_regular": float(row.get("jam_regular", 0)),
+                                    "jam_ot": float(row.get("jam_ot", 0)),
+                                    "box_regular": int(row.get("box_regular", 0)),
+                                    "box_ot": int(row.get("box_ot", 0)),
+                                    "total_box_job": int(row.get("total_box_job", 0)),
+                                    "keterangan": str(row.get("keterangan", "")),
                                     "id": int(row.get("id"))
                                 })
                         st.success("Perubahan data Daily Report berhasil disimpan!")
                         st.rerun()
 
+                # Hapus Terceklis di Kanan
                 with col_right2_d:
                     rows_to_delete_dr = edited_df_dr[edited_df_dr["Hapus"] == True]
                     num_del_dr = len(rows_to_delete_dr)
