@@ -633,18 +633,109 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 6. HALAMAN DATABASE KARYAWAN (database_menu)
+# 6. HALAMAN DATABASE KARYAWAN (DENGAN FITUR IMPORT/EXPORT EXCEL)
 # =====================================================================
 elif st.session_state.page == 'database_menu':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.markdown("### 🗂️ Database Karyawan")
     st.write("---")
-    
+
     # -----------------------------------------------------------------
-    # 1. FORM INPUT KARYAWAN BARU (DISIMPAN KE db_karyawan)
+    # FITUR AMBIL/EXPAND & IMPORT DATA VIA EXCEL (MASSAL)
+    # -----------------------------------------------------------------
+    with st.expander("📥 **Upload / Import Data Karyawan via Excel (Massal)**", expanded=False):
+        st.caption("Gunakan fitur ini untuk memasukkan banyak data sekaligus agar menghemat waktu.")
+        
+        col_ex1, col_ex2 = st.columns([1, 2])
+        
+        # 1. Tombol Download Template Excel
+        with col_ex1:
+            st.markdown("**1. Download Template Excel:**")
+            df_template = pd.DataFrame({
+                "Nama Lengkap": ["Contoh Nama 1", "Contoh Nama 2"],
+                "NIK": ["12345", "67890"],
+                "Section": ["Quality", "Production"],
+                "Job": ["Inspector", "Operator"],
+                "Titik Jemputan": ["Cikarang", "Karawang"],
+                "No HP": ["081234567890", "089876543210"],
+                "Shift": ["Putih", "Biru"]
+            })
+            
+            buffer_template = io.BytesIO()
+            with pd.ExcelWriter(buffer_template, engine='openpyxl') as writer:
+                df_template.to_excel(writer, index=False, sheet_name='Template_Karyawan')
+                
+            st.download_button(
+                label="📄 Download Format Template (.xlsx)",
+                data=buffer_template.getvalue(),
+                file_name="Template_Database_Karyawan.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
+            )
+            
+        # 2. Upload File Excel
+        with col_ex2:
+            st.markdown("**2. Upload File Excel yang Sudah Diisi:**")
+            uploaded_excel = st.file_uploader("Pilih file Excel (.xlsx)", type=["xlsx", "xls"], key="excel_uploader_karyawan")
+            
+            if uploaded_excel is not None:
+                try:
+                    df_excel = pd.read_excel(uploaded_excel)
+                    st.write("📌 **Preview Data File Excel:**")
+                    st.dataframe(df_excel.head(5), use_container_width=True)
+                    
+                    if st.button("🚀 PROSES IMPORT KE DATABASE", type="primary", use_container_width=True):
+                        # Peta pencocokan nama kolom dari file Excel
+                        required_cols = ["Nama Lengkap", "NIK"]
+                        
+                        # Pastikan kolom utama ada
+                        if not all(col in df_excel.columns for col in required_cols):
+                            st.error("⚠️ Format file Excel tidak sesuai template! Pastikan ada kolom 'Nama Lengkap' dan 'NIK'.")
+                        else:
+                            success_count = 0
+                            with conn.engine.begin() as connection:
+                                for index, row in df_excel.iterrows():
+                                    nm_val = str(row.get("Nama Lengkap", "")).strip()
+                                    nik_val = str(row.get("NIK", "")).strip()
+                                    
+                                    # Hanya proses jika Nama dan NIK tidak kosong
+                                    if nm_val != "" and nik_val != "" and nm_val != "nan":
+                                        sec_val = "" if pd.isna(row.get("Section")) else str(row.get("Section")).strip()
+                                        job_val = "" if pd.isna(row.get("Job")) else str(row.get("Job")).strip()
+                                        jem_val = "" if pd.isna(row.get("Titik Jemputan")) else str(row.get("Titik Jemputan")).strip()
+                                        hp_val = "" if pd.isna(row.get("No HP")) else str(row.get("No HP")).strip()
+                                        
+                                        sh_val = str(row.get("Shift", "Putih")).strip().capitalize()
+                                        if sh_val not in ["Putih", "Biru"]:
+                                            sh_val = "Putih" # Default jika tidak diketik 'Putih' / 'Biru'
+
+                                        query_ins_excel = text("""
+                                            INSERT INTO db_karyawan (nama, nik, section, job, titik_jemputan, no_hp, shift)
+                                            VALUES (:nama, :nik, :section, :job, :titik_jemputan, :no_hp, :shift)
+                                        """)
+                                        connection.execute(query_ins_excel, {
+                                            "nama": nm_val,
+                                            "nik": nik_val,
+                                            "section": sec_val,
+                                            "job": job_val,
+                                            "titik_jemputan": jem_val,
+                                            "no_hp": hp_val,
+                                            "shift": sh_val
+                                        })
+                                        success_count += 1
+                                        
+                            st.success(f"🎉 Berhasil mengimpor {success_count} data karyawan baru ke database!")
+                            st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal membaca file Excel: {e}")
+
+    st.write("---")
+
+    # -----------------------------------------------------------------
+    # 1. FORM INPUT KARYAWAN BARU (MANUAL PER BARIS)
     # -----------------------------------------------------------------
     with st.form("form_database_karyawan", clear_on_submit=True):
-        st.subheader("Input Data Karyawan")
+        st.subheader("Input Data Karyawan (Manual)")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             nama = st.text_input("Nama Lengkap")
@@ -655,7 +746,6 @@ elif st.session_state.page == 'database_menu':
             titik_jemputan = st.text_input("Titik Jemputan")
             no_hp = st.text_input("No HP")
         
-        # Dropdown input shift awal (Putih / Biru)
         shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
         
         st.write("")
@@ -707,17 +797,15 @@ elif st.session_state.page == 'database_menu':
         df_db_karyawan = pd.DataFrame()
 
     if len(df_db_karyawan) > 0:
-        # Sisipkan kolom 'Pilih' untuk checkbox
         df_db_karyawan.insert(0, "Pilih", False)
 
         st.caption("💡 *Centang baris yang ingin diperbarui/dihapus, lalu pilih Shift (Putih/Biru) pada tabel.*")
 
-        # Tabel Interaktif dengan Penanda Panah (▼) pada Header Shift
         edited_karyawan_df = st.data_editor(
             df_db_karyawan,
             column_config={
                 "Pilih": st.column_config.CheckboxColumn("Pilih", help="Centang untuk memilih baris"),
-                "id": None, # Sembunyikan ID
+                "id": None,
                 "nama": st.column_config.TextColumn("Nama Lengkap", disabled=True),
                 "nik": st.column_config.TextColumn("NIK", disabled=True),
                 "section": st.column_config.TextColumn("Section", disabled=True),
@@ -773,7 +861,7 @@ elif st.session_state.page == 'database_menu':
                     st.success(f"🗑️ Berhasil menghapus {deleted_count} data karyawan.")
                     st.rerun()
     else:
-        st.info("ℹ️ Belum ada data karyawan di database. Silakan isi form di atas untuk menambahkan data baru.")
+        st.info("ℹ️ Belum ada data karyawan di database. Silakan isi form manual di atas atau gunakan Upload Excel.")
 # =====================================================================
 # 7. HALAMAN REKAP DATA / SUMMARY REPORT 
 # =====================================================================
