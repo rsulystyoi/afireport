@@ -647,13 +647,13 @@ elif st.session_state.page == 'database_menu':
         st.subheader("Input Data Karyawan Baru")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            nama = st.text_input("Nama Lengkap", placeholder="Masukkan Nama Lengkap")
-            nik = st.text_input("NIK", placeholder="Masukkan NIK")
-            section = st.text_input("Section", placeholder="Masukkan Section")
+            nama = st.text_input("Nama Lengkap")
+            nik = st.text_input("NIK")
+            section = st.text_input("Section")
         with col_f2:
-            job = st.text_input("Job", placeholder="Masukkan Deskripsi Pekerjaan")
-            titik_jemputan = st.text_input("Titik Jemputan", placeholder="Masukkan Titik Jemputan")
-            no_hp = st.text_input("No HP", placeholder="08xxxxxxxxxx")
+            job = st.text_input("Job")
+            titik_jemputan = st.text_input("Titik Jemputan")
+            no_hp = st.text_input("No HP")
         
         # Pilihan shift: Putih atau Biru
         shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
