@@ -635,9 +635,6 @@ elif st.session_state.page == 'input_daily_report':
 # =====================================================================
 # 6. HALAMAN DATABASE KARYAWAN (database_menu)
 # =====================================================================
-# =====================================================================
-# BAGIAN YANG DIUBAH: DATABASE KARYAWAN
-# =====================================================================
 elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai kunci page Anda
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.markdown("### 🗂️ Database Karyawan")
@@ -650,13 +647,13 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
         st.subheader("Input Data Karyawan Baru")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            nama = st.text_input("Nama Lengkap", placeholder="Masukkan Nama Lengkap")
-            nik = st.text_input("NIK", placeholder="Masukkan NIK")
-            section = st.text_input("Section", placeholder="Masukkan Section")
+            nama = st.text_input("Nama Lengkap")
+            nik = st.text_input("NIK")
+            section = st.text_input("Section")
         with col_f2:
-            job = st.text_input("Job", placeholder="Masukkan Deskripsi Pekerjaan")
-            titik_jemputan = st.text_input("Titik Jemputan", placeholder="Masukkan Titik Jemputan")
-            no_hp = st.text_input("No HP", placeholder="08xxxxxxxxxx")
+            job = st.text_input("Job")
+            titik_jemputan = st.text_input("Titik Jemputan")
+            no_hp = st.text_input("No HP")
         
         # Dropdown input shift awal (Putih / Biru)
         shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
@@ -743,7 +740,7 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
 
         col_act1, col_act2 = st.columns([2, 1])
         with col_act1:
-            if st.button("💾 SIMPAN PERUBAHAN SHIFT", type="primary", use_container_width=True, key="btn_save_shift_db"):
+            if st.button("Simpan Perubahan Shift", type="primary", use_container_width=True, key="btn_save_shift_db"):
                 if len(selected_rows) == 0:
                     st.warning("⚠️ Silakan centang minimal satu baris karyawan yang ingin diperbarui shift-nya.")
                 else:
@@ -761,7 +758,7 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
                     st.rerun()
 
         with col_act2:
-            if st.button("🗑️ HAPUS (YANG DICENTANG)", use_container_width=True, key="btn_del_selected_db"):
+            if st.button("Hapus Terpilih", use_container_width=True, key="btn_del_selected_db"):
                 if len(selected_rows) == 0:
                     st.warning("⚠️ Silakan centang baris yang ingin dihapus.")
                 else:
