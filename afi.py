@@ -635,16 +635,16 @@ elif st.session_state.page == 'input_daily_report':
 # =====================================================================
 # 6. HALAMAN DATABASE KARYAWAN (database_menu)
 # =====================================================================
-elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai kunci page Anda
+elif st.session_state.page == 'database_menu':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.markdown("### 🗂️ Database Karyawan")
     st.write("---")
     
     # -----------------------------------------------------------------
-    # 1. FORM INPUT KARYAWAN BARU
+    # 1. FORM INPUT KARYAWAN BARU (DISIMPAN KE db_karyawan)
     # -----------------------------------------------------------------
     with st.form("form_database_karyawan", clear_on_submit=True):
-        st.subheader("Input Data Karyawan Baru")
+        st.subheader("Input Data Karyawan")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             nama = st.text_input("Nama Lengkap")
@@ -666,7 +666,7 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
                 try:
                     with conn.engine.begin() as connection:
                         query_ins = text("""
-                            INSERT INTO db_shift (nama, nik, section, job, titik_jemputan, no_hp, shift)
+                            INSERT INTO db_karyawan (nama, nik, section, job, titik_jemputan, no_hp, shift)
                             VALUES (:nama, :nik, :section, :job, :titik_jemputan, :no_hp, :shift)
                         """)
                         connection.execute(query_ins, {
@@ -685,7 +685,7 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
             else:
                 st.warning("⚠️ Nama Lengkap dan NIK wajib diisi!")
 
-    # --- TOMBOL KEMBALI DI LUAR FORM ---
+    # --- TOMBOL NAVIGASI DI LUAR FORM (Warna Biru) ---
     col_nav1, col_nav2 = st.columns(2)
     with col_nav1:
         pass
@@ -697,12 +697,12 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
     st.write("---")
 
     # -----------------------------------------------------------------
-    # 2. TABEL DAFTAR DATABASE (Bisa Ceklis + Dropdown Shift Panah ▼)
+    # 2. TABEL DAFTAR DATABASE (DIBACA DARI db_karyawan)
     # -----------------------------------------------------------------
     st.subheader("📋 Daftar Database Karyawan")
 
     try:
-        df_db_karyawan = conn.query("SELECT id, nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_shift ORDER BY id DESC;", ttl="0s")
+        df_db_karyawan = conn.query("SELECT id, nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id DESC;", ttl="0s")
     except Exception as e:
         df_db_karyawan = pd.DataFrame()
 
@@ -725,7 +725,7 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
                 "titik_jemputan": st.column_config.TextColumn("Titik Jemputan", disabled=True),
                 "no_hp": st.column_config.TextColumn("No HP", disabled=True),
                 "shift": st.column_config.SelectboxColumn(
-                    "Pilihan Shift ▼", # Penanda Visual Dropdown Panah Kebawah
+                    "Pilihan Shift ▼",
                     help="Klik untuk memilih Shift (Putih atau Biru)",
                     options=["Putih", "Biru"],
                     required=True
@@ -750,7 +750,7 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
                             row_id = int(row["id"])
                             new_shift = str(row["shift"])
 
-                            query_update = text("UPDATE db_shift SET shift = :sh WHERE id = :id_val;")
+                            query_update = text("UPDATE db_karyawan SET shift = :sh WHERE id = :id_val;")
                             connection.execute(query_update, {"sh": new_shift, "id_val": row_id})
                             updated_count += 1
 
@@ -766,7 +766,7 @@ elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai ku
                     with conn.engine.begin() as connection:
                         for index, row in selected_rows.iterrows():
                             row_id = int(row["id"])
-                            query_del = text("DELETE FROM db_shift WHERE id = :id_val;")
+                            query_del = text("DELETE FROM db_karyawan WHERE id = :id_val;")
                             connection.execute(query_del, {"id_val": row_id})
                             deleted_count += 1
 
