@@ -636,52 +636,146 @@ elif st.session_state.page == 'input_daily_report':
 # 6. HALAMAN DATABASE KARYAWAN (database_menu)
 # =====================================================================
 elif st.session_state.page == 'database_menu':
+    st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.markdown("### 🗂️ Database Karyawan")
     st.write("---")
     
-    # Form Input ke Database PostgreSQL
-    with st.form("form_database_karyawan"):
-        st.subheader("Input Data Karyawan")
+    # -----------------------------------------------------------------
+    # 1. FORM INPUT KARYAWAN BARU KE POSTGRESQL
+    # -----------------------------------------------------------------
+    with st.form("form_database_karyawan", clear_on_submit=True):
+        st.subheader("Input Data Karyawan Baru")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            nama = st.text_input("Nama Lengkap")
-            nik = st.text_input("NIK")
-            section = st.text_input("Section")
+            nama = st.text_input("Nama Lengkap", placeholder="Masukkan Nama Lengkap")
+            nik = st.text_input("NIK", placeholder="Masukkan NIK")
+            section = st.text_input("Section", placeholder="Masukkan Section")
         with col_f2:
-            job = st.text_input("Job")
-            titik_jemputan = st.text_input("Titik Jemputan")
-            no_hp = st.text_input("No HP")
+            job = st.text_input("Job", placeholder="Masukkan Deskripsi Pekerjaan")
+            titik_jemputan = st.text_input("Titik Jemputan", placeholder="Masukkan Titik Jemputan")
+            no_hp = st.text_input("No HP", placeholder="08xxxxxxxxxx")
         
-        # Pilihan shift diganti menjadi Putih atau Biru
+        # Pilihan shift: Putih atau Biru
         shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
         
-       # Tombol Submit Database di dalam form
-        submit_db = st.form_submit_button("Submit Database", use_container_width=True)
+        st.write("")
+        submit_db = st.form_submit_button("Submit Database", type="primary", use_container_width=True)
         
         if submit_db:
-            if nama and nik:
-                # LOGIKA POSTGRESQL INSERT DISINI
-                st.success(f"Data karyawan **{nama}** (Shift {shift}) berhasil disimpan ke database!")
+            if nama.strip() and nik.strip():
+                try:
+                    with conn.engine.begin() as connection:
+                        query_ins = text("""
+                            INSERT INTO db_shift (nama, nik, section, job, titik_jemputan, no_hp, shift)
+                            VALUES (:nama, :nik, :section, :job, :titik_jemputan, :no_hp, :shift)
+                        """)
+                        connection.execute(query_ins, {
+                            "nama": nama.strip(),
+                            "nik": nik.strip(),
+                            "section": section.strip(),
+                            "job": job.strip(),
+                            "titik_jemputan": titik_jemputan.strip(),
+                            "no_hp": no_hp.strip(),
+                            "shift": shift
+                        })
+                    st.success(f"✅ Data karyawan **{nama}** (Shift {shift}) berhasil disimpan ke database!")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Gagal menyimpan data ke database: {e}")
             else:
-                st.warning("Nama dan NIK wajib diisi!")
+                st.warning("⚠️ Nama Lengkap dan NIK wajib diisi!")
 
-    # --- TOMBOL NAVIGASI DI LUAR FORM (Agar Berwarna Biru) ---
+    # --- TOMBOL NAVIGASI DI LUAR FORM (Tombol Biru) ---
     col_nav1, col_nav2 = st.columns(2)
-    
     with col_nav1:
-        # Kosong atau bisa diisi tombol lain jika diperlukan
         pass
-        
     with col_nav2:
-        # Tombol Kembali ke Menu Utama di luar form (Otomatis Biru)
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_db_menu"):
             st.session_state.page = 'select_menu'
             st.rerun()
 
     st.write("---")
-    st.subheader("Nantinya Database ada Disini nih..")
-    st.info("database belum muncul, masih dalam tahap oprek oprek") 
-       
+
+    # -----------------------------------------------------------------
+    # 2. TABEL DATA KARYAWAN LANGSUNG DARI DATABASE POSTGRESQL
+    # -----------------------------------------------------------------
+    st.subheader("📋 Daftar Database Karyawan")
+
+    try:
+        # Mengambil seluruh data karyawan dari PostgreSQL db_shift
+        df_db_karyawan = conn.query("SELECT id, nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_shift ORDER BY id DESC;", ttl="0s")
+    except Exception as e:
+        df_db_karyawan = pd.DataFrame()
+
+    if len(df_db_karyawan) > 0:
+        # Sisipkan kolom 'Pilih' untuk fitur checkbox centang baris
+        df_db_karyawan.insert(0, "Pilih", False)
+
+        st.caption("💡 *Centang baris yang ingin diperbarui/dihapus, lalu ubah Pilihan Shift (Putih/Biru) langsung pada tabel.*")
+
+        # Tabel Interaktif st.data_editor
+        edited_karyawan_df = st.data_editor(
+            df_db_karyawan,
+            column_config={
+                "Pilih": st.column_config.CheckboxColumn("Pilih", help="Centang untuk memilih baris"),
+                "id": None, # Sembunyikan ID agar tampilan bersih
+                "nama": st.column_config.TextColumn("Nama Lengkap", disabled=True),
+                "nik": st.column_config.TextColumn("NIK", disabled=True),
+                "section": st.column_config.TextColumn("Section", disabled=True),
+                "job": st.column_config.TextColumn("Job", disabled=True),
+                "titik_jemputan": st.column_config.TextColumn("Titik Jemputan", disabled=True),
+                "no_hp": st.column_config.TextColumn("No HP", disabled=True),
+                "shift": st.column_config.SelectboxColumn(
+                    "Pilihan Shift",
+                    help="Ubah ke Putih atau Biru",
+                    options=["Putih", "Biru"],
+                    required=True
+                )
+            },
+            hide_index=True,
+            use_container_width=True,
+            key="editor_db_karyawan_page"
+        )
+
+        # Ambil baris-baris yang dicentang oleh pengguna
+        selected_rows = edited_karyawan_df[edited_karyawan_df["Pilih"] == True]
+
+        col_act1, col_act2 = st.columns([2, 1])
+        with col_act1:
+            if st.button("💾 SIMPAN PERUBAHAN SHIFT", type="primary", use_container_width=True, key="btn_save_shift_db"):
+                if len(selected_rows) == 0:
+                    st.warning("⚠️ Silakan centang minimal satu baris karyawan yang ingin diperbarui shift-nya.")
+                else:
+                    updated_count = 0
+                    with conn.engine.begin() as connection:
+                        for index, row in selected_rows.iterrows():
+                            row_id = int(row["id"])
+                            new_shift = str(row["shift"])
+
+                            query_update = text("UPDATE db_shift SET shift = :sh WHERE id = :id_val;")
+                            connection.execute(query_update, {"sh": new_shift, "id_val": row_id})
+                            updated_count += 1
+
+                    st.success(f"✅ Berhasil memperbarui Pilihan Shift untuk {updated_count} karyawan!")
+                    st.rerun()
+
+        with col_act2:
+            if st.button("🗑️ HAPUS (YANG DICENTANG)", use_container_width=True, key="btn_del_selected_db"):
+                if len(selected_rows) == 0:
+                    st.warning("⚠️ Silakan centang baris yang ingin dihapus.")
+                else:
+                    deleted_count = 0
+                    with conn.engine.begin() as connection:
+                        for index, row in selected_rows.iterrows():
+                            row_id = int(row["id"])
+                            query_del = text("DELETE FROM db_shift WHERE id = :id_val;")
+                            connection.execute(query_del, {"id_val": row_id})
+                            deleted_count += 1
+
+                    st.success(f"🗑️ Berhasil menghapus {deleted_count} data karyawan.")
+                    st.rerun()
+    else:
+        st.info("ℹ️ Belum ada data karyawan di database. Silakan isi form di atas untuk menambahkan data baru.")
 # =====================================================================
 # 7. HALAMAN REKAP DATA / SUMMARY REPORT 
 # =====================================================================
