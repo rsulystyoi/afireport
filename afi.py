@@ -635,27 +635,30 @@ elif st.session_state.page == 'input_daily_report':
 # =====================================================================
 # 6. HALAMAN DATABASE KARYAWAN (database_menu)
 # =====================================================================
-elif st.session_state.page == 'database_menu':
+# =====================================================================
+# BAGIAN YANG DIUBAH: DATABASE KARYAWAN
+# =====================================================================
+elif st.session_state.page == 'database_menu': # atau 'input_overtime' sesuai kunci page Anda
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.markdown("### 🗂️ Database Karyawan")
     st.write("---")
     
     # -----------------------------------------------------------------
-    # 1. FORM INPUT KARYAWAN BARU KE POSTGRESQL
+    # 1. FORM INPUT KARYAWAN BARU
     # -----------------------------------------------------------------
     with st.form("form_database_karyawan", clear_on_submit=True):
         st.subheader("Input Data Karyawan Baru")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
-            nama = st.text_input("Nama Lengkap")
-            nik = st.text_input("NIK")
-            section = st.text_input("Section")
+            nama = st.text_input("Nama Lengkap", placeholder="Masukkan Nama Lengkap")
+            nik = st.text_input("NIK", placeholder="Masukkan NIK")
+            section = st.text_input("Section", placeholder="Masukkan Section")
         with col_f2:
-            job = st.text_input("Job")
-            titik_jemputan = st.text_input("Titik Jemputan")
-            no_hp = st.text_input("No HP")
+            job = st.text_input("Job", placeholder="Masukkan Deskripsi Pekerjaan")
+            titik_jemputan = st.text_input("Titik Jemputan", placeholder="Masukkan Titik Jemputan")
+            no_hp = st.text_input("No HP", placeholder="08xxxxxxxxxx")
         
-        # Pilihan shift: Putih atau Biru
+        # Dropdown input shift awal (Putih / Biru)
         shift = st.selectbox("Pilihan Shift", ["Putih", "Biru"])
         
         st.write("")
@@ -685,7 +688,7 @@ elif st.session_state.page == 'database_menu':
             else:
                 st.warning("⚠️ Nama Lengkap dan NIK wajib diisi!")
 
-    # --- TOMBOL NAVIGASI DI LUAR FORM (Tombol Biru) ---
+    # --- TOMBOL KEMBALI DI LUAR FORM ---
     col_nav1, col_nav2 = st.columns(2)
     with col_nav1:
         pass
@@ -697,28 +700,27 @@ elif st.session_state.page == 'database_menu':
     st.write("---")
 
     # -----------------------------------------------------------------
-    # 2. TABEL DATA KARYAWAN LANGSUNG DARI DATABASE POSTGRESQL
+    # 2. TABEL DAFTAR DATABASE (Bisa Ceklis + Dropdown Shift Panah ▼)
     # -----------------------------------------------------------------
     st.subheader("📋 Daftar Database Karyawan")
 
     try:
-        # Mengambil seluruh data karyawan dari PostgreSQL db_shift
         df_db_karyawan = conn.query("SELECT id, nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_shift ORDER BY id DESC;", ttl="0s")
     except Exception as e:
         df_db_karyawan = pd.DataFrame()
 
     if len(df_db_karyawan) > 0:
-        # Sisipkan kolom 'Pilih' untuk fitur checkbox centang baris
+        # Sisipkan kolom 'Pilih' untuk checkbox
         df_db_karyawan.insert(0, "Pilih", False)
 
-        st.caption("💡 *Centang baris yang ingin diperbarui/dihapus, lalu ubah Pilihan Shift (Putih/Biru) langsung pada tabel.*")
+        st.caption("💡 *Centang baris yang ingin diperbarui/dihapus, lalu pilih Shift (Putih/Biru) pada tabel.*")
 
-        # Tabel Interaktif st.data_editor
+        # Tabel Interaktif dengan Penanda Panah (▼) pada Header Shift
         edited_karyawan_df = st.data_editor(
             df_db_karyawan,
             column_config={
                 "Pilih": st.column_config.CheckboxColumn("Pilih", help="Centang untuk memilih baris"),
-                "id": None, # Sembunyikan ID agar tampilan bersih
+                "id": None, # Sembunyikan ID
                 "nama": st.column_config.TextColumn("Nama Lengkap", disabled=True),
                 "nik": st.column_config.TextColumn("NIK", disabled=True),
                 "section": st.column_config.TextColumn("Section", disabled=True),
@@ -726,8 +728,8 @@ elif st.session_state.page == 'database_menu':
                 "titik_jemputan": st.column_config.TextColumn("Titik Jemputan", disabled=True),
                 "no_hp": st.column_config.TextColumn("No HP", disabled=True),
                 "shift": st.column_config.SelectboxColumn(
-                    "Pilihan Shift",
-                    help="Ubah ke Putih atau Biru",
+                    "Pilihan Shift ▼", # Penanda Visual Dropdown Panah Kebawah
+                    help="Klik untuk memilih Shift (Putih atau Biru)",
                     options=["Putih", "Biru"],
                     required=True
                 )
@@ -737,7 +739,6 @@ elif st.session_state.page == 'database_menu':
             key="editor_db_karyawan_page"
         )
 
-        # Ambil baris-baris yang dicentang oleh pengguna
         selected_rows = edited_karyawan_df[edited_karyawan_df["Pilih"] == True]
 
         col_act1, col_act2 = st.columns([2, 1])
