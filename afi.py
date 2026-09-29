@@ -739,13 +739,15 @@ elif st.session_state.page == 'database_menu':
         # Tombol Import (Memanggil Pop-Up Dialog)
         if st.button("📤 Import dari Excel", use_container_width=True, key="btn_trigger_import_popup"):
             popup_import_excel()
+            
+    st.write("---")
 
     with col_btn3:
         # Tombol Kembali ke Menu Utama
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_db_menu"):
             st.session_state.page = 'select_menu'
             st.rerun()
-
+            
     st.write("---")
 
     # -----------------------------------------------------------------
