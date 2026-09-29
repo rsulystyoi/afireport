@@ -742,7 +742,7 @@ elif st.session_state.page == 'database_menu':
 
     with col_right_act:
         # Tombol Kembali ke Menu Utama (Navigasi Biru)
-        if st.button("⬅️ Kembali ke Menu Utama", use_container_width=True, type="secondary", key="btn_back_db_menu"):
+        if st.button("Kembali ke Menu Utama", use_container_width=True, type="secondary", key="btn_back_db_menu"):
             st.session_state.page = 'select_menu'
             st.rerun()
 
@@ -760,8 +760,6 @@ elif st.session_state.page == 'database_menu':
 
     if len(df_db_karyawan) > 0:
         df_db_karyawan.insert(0, "Pilih", False)
-
-        st.caption("💡 *Centang baris yang ingin diperbarui/dihapus, lalu pilih Shift (Putih/Biru) pada tabel.*")
 
         edited_karyawan_df = st.data_editor(
             df_db_karyawan,
