@@ -597,15 +597,18 @@ elif st.session_state.page == 'input_daily_report':
             st.rerun()
 
 # =====================================================================
-# 6. HALAMAN DATABASE KARYAWAN (database_menu)
+# 6. HALAMAN DATABASE KARYAWAN (TOMBOL IMPORT, EXPORT & KEMBALI SEJAJAR)
 # =====================================================================
 elif st.session_state.page == 'database_menu':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.markdown("### 🗂️ Database Karyawan")
     st.write("---")
-    
+
+    # -----------------------------------------------------------------
+    # FORM INPUT MANUAL KARYAWAN
+    # -----------------------------------------------------------------
     with st.form("form_database_karyawan", clear_on_submit=True):
-        st.subheader("Input Data Karyawan")
+        st.subheader("Input Data Karyawan (Manual)")
         col_f1, col_f2 = st.columns(2)
         with col_f1:
             nama = st.text_input("Nama Lengkap")
@@ -645,16 +648,102 @@ elif st.session_state.page == 'database_menu':
             else:
                 st.warning("⚠️ Nama Lengkap dan NIK wajib diisi!")
 
-    col_nav1, col_nav2 = st.columns(2)
-    with col_nav1:
-        pass
-    with col_nav2:
+    st.write("")
+
+    # -----------------------------------------------------------------
+    # BARIS TOMBOL SEJAJAR: EXPORT, IMPORT (EXPANDER POPUP), & KEMBALI
+    # -----------------------------------------------------------------
+    # Menyiapkan data untuk Export
+    try:
+        df_curr_export = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
+    except Exception:
+        df_curr_export = pd.DataFrame()
+
+    if len(df_curr_export) > 0:
+        df_export_final = df_curr_export.rename(columns={
+            "nama": "Nama Lengkap", "nik": "NIK", "section": "Section", 
+            "job": "Job", "titik_jemputan": "Titik Jemputan", "no_hp": "No HP", "shift": "Shift"
+        })
+    else:
+        df_export_final = pd.DataFrame([
+            {"Nama Lengkap": "CONTOH NAMA 1", "NIK": "12345", "Section": "QUALITY", "Job": "QA", "Titik Jemputan": "PLAZA", "No HP": "081234567890", "Shift": "Putih"},
+            {"Nama Lengkap": "CONTOH NAMA 2", "NIK": "12346", "Section": "QUALITY", "Job": "QC", "Titik Jemputan": "GALUH", "No HP": "081234567891", "Shift": "Biru"}
+        ])
+
+    buffer_tpl = io.BytesIO()
+    with pd.ExcelWriter(buffer_tpl, engine='openpyxl') as writer:
+        df_export_final.to_excel(writer, index=False, sheet_name='Database_Karyawan')
+
+    # Pembagian 3 Kolom Sejajar persis di bawah Form
+    col_btn1, col_btn2, col_btn3 = st.columns(3)
+
+    with col_btn1:
+        # Tombol Download Excel (Export/Template)
+        st.download_button(
+            label="📥 Download Template / Data Excel",
+            data=buffer_tpl.getvalue(),
+            file_name="Database_Karyawan_AFI.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+            key="btn_download_db_karyawan_excel"
+        )
+
+    with col_btn2:
+        # Checkbox / Toggle Pemicu Area Upload Import
+        show_upload = st.checkbox("📤 Import dari Excel", key="toggle_upload_db")
+
+    with col_btn3:
+        # Tombol Kembali ke Menu Utama
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_db_menu"):
             st.session_state.page = 'select_menu'
             st.rerun()
 
+    # Form Upload yang muncul jika checkbox "Import dari Excel" dicentang
+    if show_upload:
+        st.info("💡 Pilih file Excel (.xlsx) dengan kolom: Nama Lengkap, NIK, Section, Job, Titik Jemputan, No HP, Shift")
+        uploaded_db_file = st.file_uploader("Pilih File Excel :", type=["xlsx", "xls"], key="upload_excel_db_karyawan")
+        
+        if uploaded_db_file is not None:
+            try:
+                df_up_db = pd.read_excel(uploaded_db_file)
+                if st.button("🚀 Proses Import ke Database", type="primary", use_container_width=True, key="btn_process_import_db"):
+                    records_to_insert = []
+                    for _, row_db in df_up_db.iterrows():
+                        nm_val = str(row_db.get("Nama Lengkap") if pd.notna(row_db.get("Nama Lengkap")) else row_db.get("Nama", "")).strip()
+                        nik_val = str(row_db.get("NIK") if pd.notna(row_db.get("NIK")) else "").strip()
+                        
+                        if nm_val != "" and nik_val != "":
+                            records_to_insert.append({
+                                "nama": nm_val,
+                                "nik": nik_val,
+                                "section": str(row_db.get("Section", "") if pd.notna(row_db.get("Section")) else "").strip(),
+                                "job": str(row_db.get("Job", "") if pd.notna(row_db.get("Job")) else "").strip(),
+                                "titik_jemputan": str(row_db.get("Titik Jemputan", "") if pd.notna(row_db.get("Titik Jemputan")) else "").strip(),
+                                "no_hp": str(row_db.get("No HP", "") if pd.notna(row_db.get("No HP")) else "").strip(),
+                                "shift": str(row_db.get("Shift", "Putih") if pd.notna(row_db.get("Shift")) else "Putih").strip()
+                            })
+
+                    if records_to_insert:
+                        with conn.engine.begin() as connection:
+                            for rec in records_to_insert:
+                                query_ins_bulk = text("""
+                                    INSERT INTO db_karyawan (nama, nik, section, job, titik_jemputan, no_hp, shift)
+                                    VALUES (:nama, :nik, :section, :job, :titik_jemputan, :no_hp, :shift)
+                                """)
+                                connection.execute(query_ins_bulk, rec)
+                        
+                        st.success(f"✅ Berhasil mengimpor {len(records_to_insert)} data karyawan baru ke database!")
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ File Excel tidak memiliki baris data yang valid (Nama Lengkap & NIK wajib ada).")
+            except Exception as e_import:
+                st.error(f"Gagal memproses file Excel: {e_import}")
+
     st.write("---")
 
+    # -----------------------------------------------------------------
+    # TABEL DAFTAR DATABASE KARYAWAN & EDITING
+    # -----------------------------------------------------------------
     st.subheader("📋 Daftar Database Karyawan")
 
     try:
@@ -674,7 +763,7 @@ elif st.session_state.page == 'database_menu':
                 "id": None, 
                 "nama": st.column_config.TextColumn("Nama Lengkap", disabled=True),
                 "nik": st.column_config.TextColumn("NIK", disabled=True),
-                "section": st.column_config.TextColumn("Section", disabled=True),
+                "section": str if False else st.column_config.TextColumn("Section", disabled=True),
                 "job": st.column_config.TextColumn("Job", disabled=True),
                 "titik_jemputan": st.column_config.TextColumn("Titik Jemputan", disabled=True),
                 "no_hp": st.column_config.TextColumn("No HP", disabled=True),
