@@ -596,7 +596,7 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 6. HALAMAN DATABASE KARYAWAN (IMPORT VIA POP-UP DIALOG)
+# 6. HALAMAN DATABASE KARYAWAN (EXPORT & IMPORT KIRI, KEMBALI KANAN)
 # =====================================================================
 elif st.session_state.page == 'database_menu':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -698,9 +698,9 @@ elif st.session_state.page == 'database_menu':
     st.write("")
 
     # -----------------------------------------------------------------
-    # BARIS 3 TOMBOL SEJAJAR: EXPORT, IMPORT (POP-UP), & KEMBALI
+    # BARIS TOMBOL: EXPORT & IMPORT DI KIRI (PUTIH), KEMBALI DI KANAN (BIRU)
     # -----------------------------------------------------------------
-    # Menyiapkan data untuk Export
+    # Menyiapkan data untuk Export Excel
     try:
         df_curr_export = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
     except Exception:
@@ -721,13 +721,13 @@ elif st.session_state.page == 'database_menu':
     with pd.ExcelWriter(buffer_tpl, engine='openpyxl') as writer:
         df_export_final.to_excel(writer, index=False, sheet_name='Database_Karyawan')
 
-    # Pembagian 3 Kolom Sejajar
-    col_btn1, col_btn2, col_btn3 = st.columns(3)
+    # Pembagian Kolom Layout (Kiri: Export & Import Putih | Kanan: Tombol Kembali Biru)
+    col_ex, col_im, col_spacer, col_right_act = st.columns([1.5, 1.5, 2, 2.5], vertical_alignment="bottom")
 
-    with col_btn1:
-        # Tombol Download Excel (Export/Template)
+    with col_ex:
+        # Tombol Export (Warna Putih Netral)
         st.download_button(
-            label="📥 Download Template / Data Excel",
+            label="📥 Export",
             data=buffer_tpl.getvalue(),
             file_name="Database_Karyawan_AFI.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -735,19 +735,17 @@ elif st.session_state.page == 'database_menu':
             key="btn_download_db_karyawan_excel"
         )
 
-    with col_btn2:
-        # Tombol Import (Memanggil Pop-Up Dialog)
-        if st.button("📤 Import dari Excel", use_container_width=True, key="btn_trigger_import_popup"):
+    with col_im:
+        # Tombol Import (Warna Putih Netral - Memanggil Modal Pop-Up)
+        if st.button("📤 Import", use_container_width=True, key="btn_trigger_import_popup"):
             popup_import_excel()
-            
-    st.write("---")
 
-    with col_btn3:
-        # Tombol Kembali ke Menu Utama
-        if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_db_menu"):
+    with col_right_act:
+        # Tombol Kembali ke Menu Utama (Navigasi Biru)
+        if st.button("⬅️ Kembali ke Menu Utama", use_container_width=True, type="secondary", key="btn_back_db_menu"):
             st.session_state.page = 'select_menu'
             st.rerun()
-            
+
     st.write("---")
 
     # -----------------------------------------------------------------
@@ -778,7 +776,7 @@ elif st.session_state.page == 'database_menu':
                 "no_hp": st.column_config.TextColumn("No HP", disabled=True),
                 "shift": st.column_config.SelectboxColumn(
                     "Pilihan Shift ▼",
-                    help="Klik untuk memilih Shift (Putih atau Biru)",
+                    help="Klik meilih Shift (Putih atau Biru)",
                     options=["Putih", "Biru"],
                     required=True
                 )
