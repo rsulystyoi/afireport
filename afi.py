@@ -341,17 +341,16 @@ elif st.session_state.page == 'input_absensi':
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
             st.rerun()
-
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT
+# 4. HALAMAN SCHEDULE SHIFT (AMBIL DATA DB KARYAWAN & SHIFT PUTIH/BIRU)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
-    st.title("⏰ Schedule Shift")
-    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
-    st.write("---")
+    st.title("📝 Schedule Shift")
+    
     st.write("")
     
+    # PERIODE 2 KOLOM TANGGAL TERPISAH
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         tgl_mulai_input = st.date_input("Dari Tanggal :", value=datetime.now(), key="ot_tgl_mulai")
@@ -360,45 +359,95 @@ elif st.session_state.page == 'input_overtime':
     
     str_mulai = tgl_mulai_input.strftime("%d/%m/%Y")
     str_selesai = tgl_selesai_input.strftime("%d/%m/%Y")
-    periode_val = str_mulai if str_mulai == str_selesai else f"{str_mulai} s/d {str_selesai}"
+    if str_mulai == str_selesai:
+        periode_val = str_mulai
+    else:
+        periode_val = f"{str_mulai} s/d {str_selesai}"
 
     st.write("---")
+    
+    # -----------------------------------------------------------------
+    # TOMBOL AMBIL DATA DARI DATABASE KARYAWAN
+    # -----------------------------------------------------------------
+    col_fetch, col_info = st.columns([2, 3], vertical_alignment="center")
+    with col_fetch:
+        if st.button("🔄 Ambil Data dari Database Karyawan", use_container_width=True, key="btn_fetch_db_karyawan"):
+            try:
+                # Query mengambil data dari db_karyawan
+                df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
+                
+                if len(df_karyawan_fetched) > 0:
+                    fetched_rows = []
+                    for _, row_f in df_karyawan_fetched.iterrows():
+                        # Normalisasi nama shift ke Putih / Biru
+                        sh_val = str(row_f.get("shift", "Putih")).strip()
+                        if sh_val not in ["Putih", "Biru"]:
+                            sh_val = "Putih"
+
+                        fetched_rows.append({
+                            "nama": str(row_f.get("nama", "") if pd.notna(row_f.get("nama")) else ""),
+                            "nik": str(row_f.get("nik", "") if pd.notna(row_f.get("nik")) else ""),
+                            "section": str(row_f.get("section", "") if pd.notna(row_f.get("section")) else ""),
+                            "job": str(row_f.get("job", "") if pd.notna(row_f.get("job")) else ""),
+                            "jemputan": str(row_f.get("titik_jemputan", "") if pd.notna(row_f.get("titik_jemputan")) else ""),
+                            "nohp": str(row_f.get("no_hp", "") if pd.notna(row_f.get("no_hp")) else ""),
+                            "shift": sh_val
+                        })
+                    
+                    st.session_state.data_rows_ot = fetched_rows
+                    st.success(f"✅ Berhasil memuat {len(fetched_rows)} data dari Database Karyawan!")
+                    st.rerun()
+                else:
+                    st.warning("⚠️ Belum ada data di Database Karyawan.")
+            except Exception as e_fetch:
+                st.error(f"Gagal mengambil data karyawan: {e_fetch}")
+
+    with col_info:
+        st.caption("💡 *Klik tombol di samping untuk mengisi otomatis seluruh anggota dari Database Karyawan, atau ketik secara manual di bawah.*")
+
+    st.write("")
+    
+    # Sub-header Tabel Database Quality Member
     st.markdown("<div style='background-color:#e9ecef; border:1px solid #ccc; text-align:center; padding:6px; font-weight:bold; font-size:15px; border-radius:4px;'>Database Quality Member</div>", unsafe_allow_html=True)
     st.write("")
     
-    ratio_cols = [0.6, 2.0, 1.1, 1.1, 1.5, 1.5, 1.3, 1.0, 0.5]
+    # PROPORSI RASIO TABEL LEBAR SEIMBANG
+    ratio_cols = [0.5, 2.3, 1.2, 1.2, 1.6, 1.6, 1.3, 1.0, 0.4]
 
+    # Header Judul Kolom
     col_l0, col_l1, col_l2, col_l3, col_l4, col_l5, col_l6, col_l7, col_l8 = st.columns(ratio_cols)
-    col_l0.markdown("<div class='table-header'>No</div>", unsafe_allow_html=True)
-    col_l1.markdown("<div class='table-header' style='text-align:left;'>Nama</div>", unsafe_allow_html=True)
-    col_l2.markdown("<div class='table-header' style='text-align:left;'>NIK</div>", unsafe_allow_html=True)
-    col_l3.markdown("<div class='table-header' style='text-align:left;'>Section</div>", unsafe_allow_html=True)
-    col_l4.markdown("<div class='table-header' style='text-align:left;'>Job</div>", unsafe_allow_html=True)
-    col_l5.markdown("<div class='table-header' style='text-align:left;'>Titik Jemputan</div>", unsafe_allow_html=True)
-    col_l6.markdown("<div class='table-header' style='text-align:left;'>No HP</div>", unsafe_allow_html=True)
-    col_l7.markdown("<div class='table-header' style='text-align:left;'>Shift</div>", unsafe_allow_html=True)
-    col_l8.markdown("<div class='table-header'>[+]</div>", unsafe_allow_html=True)
+    col_l0.markdown("<div class='table-header' style='text-align:center;'>No</div>", unsafe_allow_html=True)
+    col_l1.markdown("<div class='table-header'>Nama</div>", unsafe_allow_html=True)
+    col_l2.markdown("<div class='table-header'>NIK</div>", unsafe_allow_html=True)
+    col_l3.markdown("<div class='table-header'>Section</div>", unsafe_allow_html=True)
+    col_l4.markdown("<div class='table-header'>Job</div>", unsafe_allow_html=True)
+    col_l5.markdown("<div class='table-header'>Titik Jemputan</div>", unsafe_allow_html=True)
+    col_l6.markdown("<div class='table-header'>No HP</div>", unsafe_allow_html=True)
+    col_l7.markdown("<div class='table-header'>Shift</div>", unsafe_allow_html=True)
+    col_l8.markdown("<div class='table-header' style='text-align:center;'>[+]</div>", unsafe_allow_html=True)
 
+    # Render Baris Input Dinamis
     for i, row in enumerate(st.session_state.data_rows_ot):
         c0, c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(ratio_cols)
         
         with c0:
             st.markdown(f"<div style='text-align:center; padding-top:6px; font-size:13px; font-weight:bold;'>{i+1}</div>", unsafe_allow_html=True)
         with c1:
-            st.session_state.data_rows_ot[i]["nama"] = st.text_input("Nama", value=row.get("nama", ""), key=f"ot_nama_{i}", label_visibility="collapsed", placeholder="Nama")
+            st.session_state.data_rows_ot[i]["nama"] = st.text_input("Nama", value=row.get("nama", ""), key=f"ot_nama_{i}", label_visibility="collapsed", placeholder="Nama Lengkap")
         with c2:
             st.session_state.data_rows_ot[i]["nik"] = st.text_input("NIK", value=row.get("nik", ""), key=f"ot_nik_{i}", label_visibility="collapsed", placeholder="NIK")
         with c3:
-            st.session_state.data_rows_ot[i]["section"] = st.text_input("Section", value=row.get("section", ""), key=f"ot_section_{i}", label_visibility="collapsed", placeholder="Sec")
+            st.session_state.data_rows_ot[i]["section"] = st.text_input("Section", value=row.get("section", ""), key=f"ot_section_{i}", label_visibility="collapsed", placeholder="Section")
         with c4:
-            st.session_state.data_rows_ot[i]["job"] = st.text_input("Job", value=row.get("job", ""), key=f"ot_job_{i}", label_visibility="collapsed", placeholder="Job")
+            st.session_state.data_rows_ot[i]["job"] = st.text_input("Job", value=row.get("job", ""), key=f"ot_job_{i}", label_visibility="collapsed", placeholder="Job Deskripsi")
         with c5:
-            st.session_state.data_rows_ot[i]["jemputan"] = st.text_input("Jemputan", value=row.get("jemputan", ""), key=f"ot_jemputan_{i}", label_visibility="collapsed", placeholder="Titik")
+            st.session_state.data_rows_ot[i]["jemputan"] = st.text_input("Jemputan", value=row.get("jemputan", ""), key=f"ot_jemputan_{i}", label_visibility="collapsed", placeholder="Titik Lokasi")
         with c6:
-            st.session_state.data_rows_ot[i]["nohp"] = st.text_input("No HP", value=row.get("nohp", ""), key=f"ot_nohp_{i}", label_visibility="collapsed", placeholder="08xxx")
+            st.session_state.data_rows_ot[i]["nohp"] = st.text_input("No HP", value=row.get("nohp", ""), key=f"ot_nohp_{i}", label_visibility="collapsed", placeholder="08xxxxxxxxxx")
         with c7:
-            opts_shift = ["Shift 1", "Shift 2", "Non-Shift"]
-            s_val = str(row.get("shift", "Shift 1"))
+            # Pilihan Shift Hanya Putih dan Biru
+            opts_shift = ["Putih", "Biru"]
+            s_val = str(row.get("shift", "Putih"))
             idx_s = opts_shift.index(s_val) if s_val in opts_shift else 0
             st.session_state.data_rows_ot[i]["shift"] = st.selectbox("Shift", options=opts_shift, index=idx_s, key=f"ot_shift_{i}", label_visibility="collapsed")
         with c8:
@@ -411,10 +460,10 @@ elif st.session_state.page == 'input_overtime':
                         st.session_state.data_rows_ot[k]["job"] = st.session_state.get(f"ot_job_{k}", "")
                         st.session_state.data_rows_ot[k]["jemputan"] = st.session_state.get(f"ot_jemputan_{k}", "")
                         st.session_state.data_rows_ot[k]["nohp"] = st.session_state.get(f"ot_nohp_{k}", "")
-                        st.session_state.data_rows_ot[k]["shift"] = st.session_state.get(f"ot_shift_{k}", "Shift 1")
+                        st.session_state.data_rows_ot[k]["shift"] = st.session_state.get(f"ot_shift_{k}", "Putih")
                     
                     st.session_state.data_rows_ot.append({
-                        "nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "Shift 1"
+                        "nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "shift": "Putih"
                     })
                     st.rerun()
 
@@ -442,7 +491,7 @@ elif st.session_state.page == 'input_overtime':
                             "shift": str(st.session_state.get(f"ot_shift_{k}", row_ot["shift"]))
                         })
 
-            st.success("Data Schedule Shift Berhasil Disimpan ke PostgreSQL (db_shift)!")
+            st.success("✅ Data Schedule Shift Berhasil Disimpan ke Database!")
             reset_data_ot()
             st.session_state.page = 'select_menu'
             st.rerun()
