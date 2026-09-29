@@ -99,8 +99,10 @@ st.markdown("""
 # --- KONEKSI KE DATABASE POSTGRESQL ---
 try:
     conn = st.connection("postgresql", type="sql")
+     st.success("Koneksi PostgreSQL berhasil dibuat!")
 except Exception as e:
     st.error("Gagal terhubung ke database PostgreSQL. Pastikan PostgreSQL berjalan dan file .streamlit/secrets.toml sudah dikonfigurasi dengan benar.")
+    st.exception(e)
 
 # --- FUNGSI RESET DATA SHIFT SCHEDULE (SCHEDULE SHIFT) ---
 def reset_data_ot():
