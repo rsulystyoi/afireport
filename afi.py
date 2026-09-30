@@ -228,7 +228,7 @@ elif st.session_state.page == 'select_menu':
             st.rerun()
 
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (SHIFT PUTIH & BIRU)
+# 3. HALAMAN INPUT ABSENSI (LEADER SEJAJAR SHIFT, TANPA INPUT TOTAL MEMBER)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -251,7 +251,7 @@ elif st.session_state.page == 'input_absensi':
     else:
         periode_abs_val = f"{str_mulai_abs} s/d {str_selesai_abs}"
 
-    # 2. MENGAMBIL TOTAL MEMBER DARI DATABASE DB_SHIFT
+    # 2. MENGAMBIL TOTAL MEMBER SECARA OTOMATIS DARI DB_SHIFT
     total_member_db = 0
     try:
         df_shift_member = conn.query("SELECT COUNT(*) as total FROM db_shift;", ttl="0s")
@@ -260,15 +260,14 @@ elif st.session_state.page == 'input_absensi':
     except Exception as e:
         total_member_db = 0
 
+    # 3. INPUT SHIFT DAN LEADER SEJAJAR
     col_a, col_b = st.columns(2)
     with col_a:
-        # Pilihan Shift Hanya Putih dan Biru
         shift = st.selectbox("Shift :", ["Putih", "Biru"], key="abs_shift_select")
-        leader = st.text_input("Leader :", key="abs_leader_input")
     with col_b:
-        total_member = st.number_input("Total Member (Schedule Shift) :", min_value=0, value=total_member_db, step=1, key="abs_total_member_input")
+        leader = st.text_input("Leader :", key="abs_leader_input")
 
-    # 3. MENGHITUNG TOTAL TIDAK HADIR UNTUK RINGKASAN
+    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN HADIR
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
     
     if 'jumlah_input_absensi' not in st.session_state:
@@ -281,25 +280,23 @@ elif st.session_state.page == 'input_absensi':
             if nama_val.strip() != "":
                 total_tidak_hadir += 1
 
-    total_hadir = total_member - total_tidak_hadir
+    total_hadir = total_member_db - total_tidak_hadir
     if total_hadir < 0:
         total_hadir = 0
 
     st.write("---")
 
-    # 📌 DASHBOARD KOTAK RINGKASAN DI ATAS
-    col_m1, col_m2, col_m3 = st.columns(3)
+    # 📌 DASHBOARD KOTAK RINGKASAN HADIR & TIDAK HADIR
+    col_m1, col_m2 = st.columns(2)
     with col_m1:
-        st.markdown(f"<div style='background-color:#e2e3e5; padding:10px; border-radius:5px; text-align:center;'><b>Total Member</b><br><span style='font-size:20px;'>{total_member} orang</span></div>", unsafe_allow_html=True)
-    with col_m2:
         st.markdown(f"<div style='background-color:#f8d7da; padding:10px; border-radius:5px; text-align:center; color:#721c24;'><b>Total Tidak Hadir</b><br><span style='font-size:20px;'>{total_tidak_hadir} orang</span></div>", unsafe_allow_html=True)
-    with col_m3:
+    with col_m2:
         st.markdown(f"<div style='background-color:#d4edda; padding:10px; border-radius:5px; text-align:center; color:#155724;'><b>Total Hadir</b><br><span style='font-size:20px; font-weight:bold;'>{total_hadir} orang</span></div>", unsafe_allow_html=True)
 
     st.write("---")
     st.subheader("Detail Ketidakhadiran / Kondisi:")
 
-    # 4. RENDER INPUT NAMA BERDASARKAN KATEGORI
+    # 5. RENDER INPUT NAMA BERDASARKAN KATEGORI
     data_nama_terinput = {}
 
     for kat in kategori_absensi:
@@ -337,7 +334,7 @@ elif st.session_state.page == 'input_absensi':
                                 "tanggal": str(periode_abs_val),
                                 "shift": shift,
                                 "leader": leader,
-                                "total_member": total_member,
+                                "total_member": total_member_db,
                                 "kategori": kat,
                                 "nama_karyawan": nm
                             })
