@@ -510,145 +510,136 @@ elif st.session_state.page == 'input_overtime':
             st.rerun()
 
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT 
+# 5. HALAMAN INPUT DAILY REPORT (SHIFT PUTIH/BIRU & TOTAL MP LIVE FROM DB_SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
-    st.title("📝 Daily Report Page")
-    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
+    st.title("📄 Daily Report Page")
+    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
 
+    # 1. HEADER INPUT: TANGGAL & SHIFT (PUTIH / BIRU)
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
     with col_hdr2:
-        shift_dr = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"], key="dr_shift_sel")
+        shift_dr = st.selectbox("Shift :", ["Putih", "Biru"], key="dr_shift_select")
 
-    # PERBAIKAN STABILITAS QUERY MENGGUNAKAN text()
+    str_tgl_dr = tgl_dr.strftime("%d/%m/%Y")
+
+    # 2. HITUNG TOTAL MP BERDASARKAN SHIFT TERPILIH DARI DB_SHIFT
+    total_mp_shift = 0
     try:
-        sql_str = "SELECT DISTINCT nama FROM db_shift WHERE LOWER(shift) = LOWER(:shift_pilihan) AND nama IS NOT NULL AND nama != '' ORDER BY nama ASC;"
-        df_nama_shift = conn.query(sql_str, params={"shift_pilihan": shift_dr}, ttl="0s")
-        list_nama_shift = df_nama_shift['nama'].tolist() if len(df_nama_shift) > 0 else []
-    except Exception:
-        list_nama_shift = []
+        query_mp = text("SELECT COUNT(*) as total FROM db_shift WHERE LOWER(TRIM(shift)) = LOWER(:sh);")
+        df_mp = conn.query(query_mp, params={"sh": shift_dr}, ttl="0s")
+        if len(df_mp) > 0:
+            total_mp_shift = int(df_mp['total'].iloc[0])
+    except Exception as e_mp:
+        total_mp_shift = 0
 
-    total_mp_shift = len(list_nama_shift)
+    st.write("")
 
-    st.markdown(
-        f"""
-        <div style='background-color:#d4edda; padding:12px; border-radius:6px; text-align:center; border:1px solid #c3e6cb; margin-top:10px; margin-bottom:15px; width:100%;'>
-            <div style='font-size:14px; font-weight:bold; color:#155724; margin-bottom:4px;'>Total MP ({shift_dr})</div>
-            <div style='font-size:20px; font-weight:bold; color:#155724;'>{total_mp_shift} Orang</div>
+    # 📌 KOTAK INDIKATOR TOTAL MP SESUAI SHIFT TERPILIH
+    st.markdown(f"""
+        <div style='background-color:#d4edda; border:1px solid #c3e6cb; padding:12px; border-radius:6px; text-align:center; color:#155724;'>
+            <b>Total MP ({shift_dr})</b><br>
+            <span style='font-size:22px; font-weight:bold;'>{total_mp_shift} Orang</span>
         </div>
-        """, 
-        unsafe_allow_html=True
-    )
+    """, unsafe_allow_html=True)
+
     st.write("---")
 
-    if list_nama_shift:
-        list_job_options = [
-            "- Pilih Job -", "QA", "QC Factory", "Lokal Meja FI", "Lokal Vinyl DDMI", "Lokal Machine", 
-            "Engine Bolt", "Sugin", "Q-Gate", "Hardness", "Measurement", 
-            "Sortir 100%", "Leader", "Others"
-        ]
+    # 3. AMBIL DAFTAR ANGGOTA SESUAI SHIFT TERPILIH DARI DB_SHIFT
+    df_karyawan_dr = pd.DataFrame()
+    try:
+        query_list = text("SELECT nama, nik, section, job FROM db_shift WHERE LOWER(TRIM(shift)) = LOWER(:sh) ORDER BY id ASC;")
+        df_karyawan_dr = conn.query(query_list, params={"sh": shift_dr}, ttl="0s")
+    except Exception as e_list:
+        df_karyawan_dr = pd.DataFrame()
 
-        if "dr_user_jobs" not in st.session_state or st.session_state.get("dr_last_shift_resp") != shift_dr:
-            st.session_state.dr_user_jobs = {nama: [1] for nama in list_nama_shift}
-            st.session_state.dr_last_shift_resp = shift_dr
+    if len(df_karyawan_dr) > 0:
+        st.subheader(f"📋 Form Daily Report Members - Shift {shift_dr}")
+        st.caption("💡 *Silakan isi rincian jam kerja dan jumlah box untuk setiap anggota di bawah ini.*")
 
-        st.subheader("📋 Input Pekerjaan Harian Anggota")
-        st.caption("Isi form pekerjaan di bawah ini. Total Box akan terhitung secara otomatis.")
+        # Siapkan kolom-kolom input tambahan untuk data_editor
+        df_karyawan_dr["Job Desk"] = df_karyawan_dr["job"]
+        df_karyawan_dr["Jam Reguler (Jam)"] = 8.0
+        df_karyawan_dr["Jam OT (Jam)"] = 0.0
+        df_karyawan_dr["Box Reguler"] = 0
+        df_karyawan_dr["Box OT"] = 0
 
-        records_to_insert = []
+        # Tampilkan tabel input dinamis
+        edited_dr_df = st.data_editor(
+            df_karyawan_dr[["nama", "nik", "section", "Job Desk", "Jam Reguler (Jam)", "Jam OT (Jam)", "Box Reguler", "Box OT"]],
+            column_config={
+                "nama": st.column_config.TextColumn("Nama Lengkap", disabled=True),
+                "nik": st.column_config.TextColumn("NIK", disabled=True),
+                "section": st.column_config.TextColumn("Section", disabled=True),
+                "Job Desk": st.column_config.TextColumn("Job / Pekerjaan"),
+                "Jam Reguler (Jam)": st.column_config.NumberColumn("Jam Reguler", min_value=0.0, step=0.5, format="%.1f"),
+                "Jam OT (Jam)": st.column_config.NumberColumn("Jam OT", min_value=0.0, step=0.5, format="%.1f"),
+                "Box Reguler": st.column_config.NumberColumn("Box Reguler", min_value=0, step=1),
+                "Box OT": st.column_config.NumberColumn("Box OT", min_value=0, step=1),
+            },
+            hide_index=True,
+            use_container_width=True,
+            key=f"editor_daily_report_{shift_dr}"
+        )
 
-        for idx, nama in enumerate(list_nama_shift):
-            st.markdown(f"##### 👤 **{idx+1}. {nama.upper()}**")
-            
-            job_rows = st.session_state.dr_user_jobs.get(nama, [1])
-
-            for j_idx in range(len(job_rows)):
-                pfx = f"dr_{shift_dr}_{nama}_{j_idx}"
-
-                c_job, c_jreg, c_jot, c_breg, c_bot, c_tot = st.columns([2.5, 1.2, 1.2, 1.2, 1.2, 1.2])
-
-                with c_job:
-                    job_val = st.selectbox(f"Job #{j_idx+1}", list_job_options, key=f"{pfx}_job")
-                with c_jreg:
-                    jam_reg = st.number_input("Jam Reg", min_value=0.0, step=0.5, format="%.1f", key=f"{pfx}_jreg")
-                with c_jot:
-                    jam_ot = st.number_input("Jam OT", min_value=0.0, step=0.5, format="%.1f", key=f"{pfx}_jot")
-                with c_breg:
-                    box_reg = st.number_input("Box Reg", min_value=0, step=1, key=f"{pfx}_breg")
-                with c_bot:
-                    box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
-                with c_tot:
-                    tot_box = box_reg + box_ot
-                    st.markdown("<label style='font-size:14px;'>Total Box</label>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background-color:#e9ecef; padding:6px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #ced4da; color:#495057;'>{tot_box}</div>", unsafe_allow_html=True)
-
-                ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
-
-                if job_val != "- Pilih Job -" or jam_reg > 0 or jam_ot > 0 or tot_box > 0:
-                    records_to_insert.append({
-                        "user_input": st.session_state.user_info.get("nama", ""),
-                        "tahun": tgl_dr.strftime("%Y"),
-                        "bulan": tgl_dr.strftime("%B"),
-                        "tanggal": tgl_dr.strftime("%Y-%m-%d"),
-                        "shift": shift_dr,
-                        "nama": nama,
-                        "job_kategori": job_val if job_val != "- Pilih Job -" else "",
-                        "jam_regular": jam_reg,
-                        "jam_ot": jam_ot,
-                        "box_regular": box_reg,
-                        "box_ot": box_ot,
-                        "total_box_job": tot_box,
-                        "keterangan": ket_val
-                    })
-
-            col_add_btn, _ = st.columns([2, 5])
-            with col_add_btn:
-                if st.button(f"➕ Tambah Job ({nama})", key=f"btn_add_job_{nama}"):
-                    st.session_state.dr_user_jobs[nama].append(len(job_rows) + 1)
-                    st.rerun()
-
-            st.write("---")
-
-        col_submit1, col_submit2 = st.columns(2)
-
-        with col_submit1:
-            if st.button("Submit Daily Report", use_container_width=True, type="primary", key="submit_dr_final"):
-                if records_to_insert:
+        st.write("---")
+        col_dr_sub1, col_dr_sub2 = st.columns(2)
+        
+        with col_dr_sub1:
+            if st.button("💾 Simpan Data Daily Report", type="primary", use_container_width=True, key="btn_save_daily_report"):
+                try:
+                    records_saved = 0
                     with conn.engine.begin() as connection:
-                        query = text("""
-                            INSERT INTO db_daily_report (
-                                user_input, tahun, bulan, tanggal, shift, nama, job_kategori, 
-                                jam_regular, jam_ot, box_regular, box_ot, total_box_job, keterangan
-                            )
-                            VALUES (
-                                :user_input, :tahun, :bulan, :tanggal, :shift, :nama, :job_kategori, 
-                                :jam_regular, :jam_ot, :box_regular, :box_ot, :total_box_job, :keterangan
-                            )
-                        """)
-                        for item in records_to_insert:
-                            connection.execute(query, item)
+                        for idx, row_dr in edited_dr_df.iterrows():
+                            nm_karyawan = str(row_dr["nama"]).strip()
+                            if nm_karyawan != "":
+                                total_box_val = int(row_dr["Box Reguler"]) + int(row_dr["Box OT"])
+                                total_jam_val = float(row_dr["Jam Reguler (Jam)"]) + float(row_dr["Jam OT (Jam)"])
 
-                    if "dr_user_jobs" in st.session_state:
-                        del st.session_state["dr_user_jobs"]
+                                query_ins_dr = text("""
+                                    INSERT INTO db_daily_report 
+                                    (user_input, tanggal, shift, total_mp, nama, nik, section, job, jam_regular, jam_ot, total_waktu, box_regular, box_ot, total_box_job)
+                                    VALUES (:user_input, :tanggal, :shift, :total_mp, :nama, :nik, :section, :job, :jam_regular, :jam_ot, :total_waktu, :box_regular, :box_ot, :total_box_job)
+                                """)
+                                connection.execute(query_ins_dr, {
+                                    "user_input": str(st.session_state.user_info.get("nama", "")),
+                                    "tanggal": str_tgl_dr,
+                                    "shift": shift_dr,
+                                    "total_mp": total_mp_shift,
+                                    "nama": nm_karyawan,
+                                    "nik": str(row_dr["nik"]),
+                                    "section": str(row_dr["section"]),
+                                    "job": str(row_dr["Job Desk"]),
+                                    "jam_regular": float(row_dr["Jam Reguler (Jam)"]),
+                                    "jam_ot": float(row_dr["Jam OT (Jam)"]),
+                                    "total_waktu": total_jam_val,
+                                    "box_regular": int(row_dr["Box Reguler"]),
+                                    "box_ot": int(row_dr["Box OT"]),
+                                    "total_box_job": total_box_val
+                                })
+                                records_saved += 1
 
-                    st.success(f"Berhasil menyimpan {len(records_to_insert)} baris Daily Report!")
+                    st.success(f"✅ Berhasil menyimpan Daily Report untuk {records_saved} karyawan (Shift {shift_dr})!")
                     st.session_state.page = 'select_menu'
                     st.rerun()
-                else:
-                    st.warning("⚠️ Belum ada data pekerjaan yang diisi!")
+                except Exception as e_save_dr:
+                    st.error(f"Gagal menyimpan data Daily Report: {e_save_dr}")
 
-        with col_submit2:
-            if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_form"):
+        with col_dr_sub2:
+            if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_dr_main"):
                 st.session_state.page = 'select_menu'
                 st.rerun()
 
     else:
-        st.warning(f"⚠️ Tidak ada data karyawan untuk {shift_dr} di Schedule Shift (`db_shift`).")
-        if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_empty"):
+        st.warning(f"⚠️️ Belum ada data karyawan di Database Schedule Shift (`db_shift`) yang terdaftar untuk **Shift {shift_dr}**.")
+        st.info("💡 *Silakan masukkan data karyawan di menu **Schedule Shift** terlebih dahulu.*")
+        
+        st.write("")
+        if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_dr_empty"):
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
