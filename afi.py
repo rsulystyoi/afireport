@@ -371,7 +371,7 @@ elif st.session_state.page == 'input_overtime':
     # -----------------------------------------------------------------
     col_fetch, col_info = st.columns([2, 3], vertical_alignment="center")
     with col_fetch:
-        if st.button("🔄 Ambil Data dari Database Karyawan", use_container_width=True, key="btn_fetch_db_karyawan"):
+        if st.button("Database Karyawan", use_container_width=True, key="btn_fetch_db_karyawan"):
             try:
                 # Query mengambil data dari db_karyawan
                 df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
@@ -403,7 +403,7 @@ elif st.session_state.page == 'input_overtime':
                 st.error(f"Gagal mengambil data karyawan: {e_fetch}")
 
     with col_info:
-        st.caption("💡 *Klik tombol di samping untuk mengisi otomatis seluruh anggota dari Database Karyawan, atau ketik secara manual di bawah.*")
+        st.caption("💡 *Ambil Data Dari Database Karyawan*")
 
     st.write("")
     
