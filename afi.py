@@ -228,41 +228,47 @@ elif st.session_state.page == 'select_menu':
             st.rerun()
 
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI 
+# 3. HALAMAN INPUT ABSENSI (SHIFT PUTIH & BIRU)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
-    st.title("📋 Attendance Page")
-    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
-    
+    st.title("📝 Attendance Page")
+    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
     
+    # 1. PERIODE 2 KOLOM TANGGAL TERPISAH
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         tgl_mulai_abs = st.date_input("Dari Tanggal :", value=datetime.now(), key="abs_tgl_mulai")
     with col_p2:
         tgl_selesai_abs = st.date_input("Sampai Tanggal :", value=datetime.now(), key="abs_tgl_selesai")
     
+    # Format teks periode
     str_mulai_abs = tgl_mulai_abs.strftime("%d/%m/%Y")
     str_selesai_abs = tgl_selesai_abs.strftime("%d/%m/%Y")
-    periode_abs_val = str_mulai_abs if str_mulai_abs == str_selesai_abs else f"{str_mulai_abs} s/d {str_selesai_abs}"
+    if str_mulai_abs == str_selesai_abs:
+        periode_abs_val = str_mulai_abs
+    else:
+        periode_abs_val = f"{str_mulai_abs} s/d {str_selesai_abs}"
 
+    # 2. MENGAMBIL TOTAL MEMBER DARI DATABASE DB_SHIFT
     total_member_db = 0
     try:
         df_shift_member = conn.query("SELECT COUNT(*) as total FROM db_shift;", ttl="0s")
         if len(df_shift_member) > 0:
             total_member_db = int(df_shift_member['total'].iloc[0])
-    except Exception:
+    except Exception as e:
         total_member_db = 0
 
     col_a, col_b = st.columns(2)
     with col_a:
-        shift = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"])
+        # Pilihan Shift Hanya Putih dan Biru
+        shift = st.selectbox("Shift :", ["Putih", "Biru"], key="abs_shift_select")
+        leader = st.text_input("Leader :", key="abs_leader_input")
     with col_b:
-        leader = st.text_input("Leader :")
-        
-    total_member = total_member_db
-        
+        total_member = st.number_input("Total Member (Schedule Shift) :", min_value=0, value=total_member_db, step=1, key="abs_total_member_input")
+
+    # 3. MENGHITUNG TOTAL TIDAK HADIR UNTUK RINGKASAN
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
     
     if 'jumlah_input_absensi' not in st.session_state:
@@ -275,21 +281,25 @@ elif st.session_state.page == 'input_absensi':
             if nama_val.strip() != "":
                 total_tidak_hadir += 1
 
-    total_hadir = max(0, total_member - total_tidak_hadir)
+    total_hadir = total_member - total_tidak_hadir
+    if total_hadir < 0:
+        total_hadir = 0
 
     st.write("---")
 
+    # 📌 DASHBOARD KOTAK RINGKASAN DI ATAS
     col_m1, col_m2, col_m3 = st.columns(3)
     with col_m1:
-        st.markdown(f"<div style='background-color:#e2e3e5; padding:10px; border-radius:5px; text-align:center;'><b>Total Member</b><br><span style='font-size:20px;'>{total_member}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#e2e3e5; padding:10px; border-radius:5px; text-align:center;'><b>Total Member</b><br><span style='font-size:20px;'>{total_member} orang</span></div>", unsafe_allow_html=True)
     with col_m2:
-        st.markdown(f"<div style='background-color:#f8d7da; padding:10px; border-radius:5px; text-align:center; color:#721c24;'><b>Total Tidak Hadir</b><br><span style='font-size:20px;'>{total_tidak_hadir} </span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#f8d7da; padding:10px; border-radius:5px; text-align:center; color:#721c24;'><b>Total Tidak Hadir</b><br><span style='font-size:20px;'>{total_tidak_hadir} orang</span></div>", unsafe_allow_html=True)
     with col_m3:
-        st.markdown(f"<div style='background-color:#d4edda; padding:10px; border-radius:5px; text-align:center; color:#155724;'><b>Total Hadir</b><br><span style='font-size:20px; font-weight:bold;'>{total_hadir}</span></div>", unsafe_allow_html=True)
+        st.markdown(f"<div style='background-color:#d4edda; padding:10px; border-radius:5px; text-align:center; color:#155724;'><b>Total Hadir</b><br><span style='font-size:20px; font-weight:bold;'>{total_hadir} orang</span></div>", unsafe_allow_html=True)
 
     st.write("---")
     st.subheader("Detail Ketidakhadiran / Kondisi:")
 
+    # 4. RENDER INPUT NAMA BERDASARKAN KATEGORI
     data_nama_terinput = {}
 
     for kat in kategori_absensi:
@@ -313,7 +323,7 @@ elif st.session_state.page == 'input_absensi':
     st.write("---")
     col_submit1, col_submit2 = st.columns(2)
     with col_submit1:
-        if st.button("Submit Attendance", use_container_width=True, type="primary"):
+        if st.button("Submit Attendance", use_container_width=True, type="primary", key="btn_submit_abs"):
             with conn.engine.begin() as connection:
                 for kat, list_nama in data_nama_terinput.items():
                     for nm in list_nama:
