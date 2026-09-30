@@ -257,7 +257,7 @@ elif st.session_state.page == 'input_absensi':
 
     col_a, col_b = st.columns(2)
     with col_a:
-        shift = st.selectbox(["Shift 1", "Shift 2", "Non Shift"])
+        shift = st.selectbox("Shift :", ["Shift 1", "Shift 2", "Non-Shift"])
     with col_b:
         leader = st.text_input("Leader :")
         
