@@ -510,7 +510,7 @@ elif st.session_state.page == 'input_overtime':
             st.rerun()
 
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (FIX TOTAL MP & AMBIL DATA DARI DB_SHIFT)
+# 5. HALAMAN INPUT DAILY REPORT (FIX TOTAL MP & LIVE FETCH FROM DB_SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -528,9 +528,10 @@ elif st.session_state.page == 'input_daily_report':
     str_tgl_dr = tgl_dr.strftime("%d/%m/%Y")
     shift_clean = str(shift_dr).strip()
 
-    # 2. HITUNG TOTAL MP LIVE BERDASARKAN SHIFT DARI DB_SHIFT (TOLERAN CAPSLOCK/TRIM)
+    # 2. HITUNG TOTAL MP LIVE BERDASARKAN SHIFT TERPILIH DARI DB_SHIFT
     total_mp_shift = 0
     try:
+        # Menggunakan LOWER(TRIM(...)) agar kebal perbedaan huruf besar/kecil & spasi tersembunyi
         query_mp = text("SELECT COUNT(*) as total FROM db_shift WHERE LOWER(TRIM(shift)) = LOWER(TRIM(:sh));")
         df_mp = conn.query(query_mp, params={"sh": shift_clean}, ttl="0s")
         if len(df_mp) > 0:
@@ -647,7 +648,7 @@ elif st.session_state.page == 'input_daily_report':
 
     else:
         st.warning(f"⚠️ Belum ada data karyawan di Database Schedule Shift (`db_shift`) yang terdaftar untuk **Shift {shift_clean}**.")
-        st.info("💡 *Silakan masukkan atau klik tombol 'Ambil Data dari Database Karyawan' di menu **Schedule Shift** terlebih dahulu.*")
+        st.info("💡 *Silakan masukkan data atau klik 'Ambil Data dari Database Karyawan' di menu **Schedule Shift** terlebih dahulu.*")
         
         st.write("")
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_dr_empty"):
