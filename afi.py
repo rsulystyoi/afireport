@@ -510,13 +510,16 @@ elif st.session_state.page == 'input_overtime':
             st.rerun()
 
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (FIX TOTAL MP & LIVE FETCH FROM DB_SHIFT)
+# 5. HALAMAN INPUT DAILY REPORT (100% SERAP DATA DARI DB_SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📄 Daily Report Page")
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
+
+    # Paksa bersihkan cache database Streamlit agar data terbaru langsung terbaca
+    st.cache_data.clear()
 
     # 1. HEADER INPUT: TANGGAL & SHIFT (PUTIH / BIRU)
     col_hdr1, col_hdr2 = st.columns(2)
@@ -528,16 +531,20 @@ elif st.session_state.page == 'input_daily_report':
     str_tgl_dr = tgl_dr.strftime("%d/%m/%Y")
     shift_clean = str(shift_dr).strip()
 
-    # 2. HITUNG TOTAL MP LIVE BERDASARKAN SHIFT TERPILIH DARI DB_SHIFT
-    total_mp_shift = 0
+    # 2. AMBIL SEMUA DATA DARI DB_SHIFT LALU FILTER DENGAN PANDAS (LEBIH AKURAT & BEBAS BUG SQL)
     try:
-        # Menggunakan LOWER(TRIM(...)) agar kebal perbedaan huruf besar/kecil & spasi tersembunyi
-        query_mp = text("SELECT COUNT(*) as total FROM db_shift WHERE LOWER(TRIM(shift)) = LOWER(TRIM(:sh));")
-        df_mp = conn.query(query_mp, params={"sh": shift_clean}, ttl="0s")
-        if len(df_mp) > 0:
-            total_mp_shift = int(df_mp['total'].iloc[0])
-    except Exception as e_mp:
-        total_mp_shift = 0
+        df_all_shift = conn.query("SELECT id, nama, nik, section, job, shift FROM db_shift ORDER BY id ASC;", ttl="0s")
+    except Exception as e_sql:
+        df_all_shift = pd.DataFrame()
+
+    # Filter berdasarkan shift terpilih menggunakan Python/Pandas
+    if len(df_all_shift) > 0 and 'shift' in df_all_shift.columns:
+        # Menghapus spasi dan menyeragamkan huruf besar/kecil
+        df_karyawan_dr = df_all_shift[df_all_shift['shift'].astype(str).str.strip().str.lower() == shift_clean.lower()].copy()
+    else:
+        df_karyawan_dr = pd.DataFrame()
+
+    total_mp_shift = len(df_karyawan_dr)
 
     st.write("")
 
@@ -551,31 +558,19 @@ elif st.session_state.page == 'input_daily_report':
 
     st.write("---")
 
-    # 3. AMBIL DAFTAR ANGGOTA SESUAI SHIFT TERPILIH DARI DB_SHIFT
-    df_karyawan_dr = pd.DataFrame()
-    try:
-        query_list = text("SELECT nama, nik, section, job FROM db_shift WHERE LOWER(TRIM(shift)) = LOWER(TRIM(:sh)) ORDER BY id ASC;")
-        df_karyawan_dr = conn.query(query_list, params={"sh": shift_clean}, ttl="0s")
-    except Exception as e_list:
-        df_karyawan_dr = pd.DataFrame()
-
-    if len(df_karyawan_dr) > 0:
+    # 3. RENDER FORM DAN TABEL INPUT ANGGOTA
+    if total_mp_shift > 0:
         st.subheader(f"📋 Form Daily Report Members - Shift {shift_clean}")
         st.caption("💡 *Silakan isi rincian jam kerja dan jumlah box untuk setiap anggota di bawah ini.*")
 
-        # Inisialisasi kolom tambahan jika belum ada
-        if "Job Desk" not in df_karyawan_dr.columns:
-            df_karyawan_dr["Job Desk"] = df_karyawan_dr["job"]
-        if "Jam Reguler (Jam)" not in df_karyawan_dr.columns:
-            df_karyawan_dr["Jam Reguler (Jam)"] = 8.0
-        if "Jam OT (Jam)" not in df_karyawan_dr.columns:
-            df_karyawan_dr["Jam OT (Jam)"] = 0.0
-        if "Box Reguler" not in df_karyawan_dr.columns:
-            df_karyawan_dr["Box Reguler"] = 0
-        if "Box OT" not in df_karyawan_dr.columns:
-            df_karyawan_dr["Box OT"] = 0
+        # Menyiapkan kolom input default
+        df_karyawan_dr["Job Desk"] = df_karyawan_dr["job"]
+        df_karyawan_dr["Jam Reguler (Jam)"] = 8.0
+        df_karyawan_dr["Jam OT (Jam)"] = 0.0
+        df_karyawan_dr["Box Reguler"] = 0
+        df_karyawan_dr["Box OT"] = 0
 
-        # Render Tabel Input Data Karyawan
+        # Render Tabel Data Editor
         edited_dr_df = st.data_editor(
             df_karyawan_dr[["nama", "nik", "section", "Job Desk", "Jam Reguler (Jam)", "Jam OT (Jam)", "Box Reguler", "Box OT"]],
             column_config={
@@ -648,7 +643,7 @@ elif st.session_state.page == 'input_daily_report':
 
     else:
         st.warning(f"⚠️ Belum ada data karyawan di Database Schedule Shift (`db_shift`) yang terdaftar untuk **Shift {shift_clean}**.")
-        st.info("💡 *Silakan masukkan data atau klik 'Ambil Data dari Database Karyawan' di menu **Schedule Shift** terlebih dahulu.*")
+        st.info("💡 *Silakan buka menu **Schedule Shift** terlebih dahulu, lalu klik tombol 'Submit Schedule Shift'.*")
         
         st.write("")
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="btn_back_dr_empty"):
