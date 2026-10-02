@@ -228,7 +228,7 @@ elif st.session_state.page == 'select_menu':
             st.rerun()
 
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER & HADIR DINAMIS DARI DB_SHIFT)
+# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER & HADIR OTOMATIS SESUAI SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -236,7 +236,7 @@ elif st.session_state.page == 'input_absensi':
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
     
-    # Bersihkan cache Streamlit agar data db_shift terbaru langsung terbaca
+    # Paksa bersihkan cache data agar perhitungan selalu real-time
     st.cache_data.clear()
 
     # 1. PERIODE 2 KOLOM TANGGAL TERPISAH
@@ -263,17 +263,28 @@ elif st.session_state.page == 'input_absensi':
 
     shift_clean = str(shift).strip()
 
-    # 3. MENGAMBIL TOTAL MEMBER KHUSUS UNTUK SHIFT TERPILIH DARI DB_SHIFT
+    # 3. AMBIL TOTAL MEMBER SESUAI SHIFT TERPILIH DARI DB_SHIFT
     total_member_shift = 0
     try:
-        query_shift_cnt = text("SELECT COUNT(*) as total FROM db_shift WHERE LOWER(TRIM(shift)) = LOWER(TRIM(:sh));")
-        df_shift_member = conn.query(query_shift_cnt, params={"sh": shift_clean}, ttl="0s")
-        if len(df_shift_member) > 0:
-            total_member_shift = int(df_shift_member['total'].iloc[0])
-    except Exception as e:
+        # Menyeragamkan pencarian shift ke Putih (Shift 1) / Biru (Shift 2)
+        if shift_clean.lower() == "putih":
+            query_cnt = text("""
+                SELECT COUNT(*) as total FROM db_shift 
+                WHERE LOWER(TRIM(shift)) IN ('putih', 'shift 1', '1');
+            """)
+        else:
+            query_cnt = text("""
+                SELECT COUNT(*) as total FROM db_shift 
+                WHERE LOWER(TRIM(shift)) IN ('biru', 'shift 2', '2');
+            """)
+            
+        df_shift_cnt = conn.query(query_cnt, ttl="0s")
+        if len(df_shift_cnt) > 0:
+            total_member_shift = int(df_shift_cnt['total'].iloc[0])
+    except Exception as e_cnt:
         total_member_shift = 0
 
-    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN TOTAL HADIR
+    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN HADIR
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
     
     if 'jumlah_input_absensi' not in st.session_state:
