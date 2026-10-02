@@ -472,7 +472,7 @@ elif st.session_state.page == 'input_overtime':
     # -----------------------------------------------------------------
     # BARIS TOMBOL PILIHAN AMBIL DATA DARI DB KARYAWAN
     # -----------------------------------------------------------------
-    st.write(" **Pilih Filter Data Karyawan yang Ingin Dimuat:**")
+    st.write(" **Ambil Data Dari Database Karyawan**")
     col_b1, col_b2, col_b3 = st.columns(3)
     
     with col_b1:
