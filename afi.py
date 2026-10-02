@@ -228,7 +228,7 @@ elif st.session_state.page == 'select_menu':
             st.rerun()
 
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (LEADER SEJAJAR SHIFT, TANPA INPUT TOTAL MEMBER)
+# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER & HADIR DINAMIS DARI DB_SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -236,6 +236,9 @@ elif st.session_state.page == 'input_absensi':
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
     
+    # Bersihkan cache Streamlit agar data db_shift terbaru langsung terbaca
+    st.cache_data.clear()
+
     # 1. PERIODE 2 KOLOM TANGGAL TERPISAH
     col_p1, col_p2 = st.columns(2)
     with col_p1:
@@ -251,23 +254,26 @@ elif st.session_state.page == 'input_absensi':
     else:
         periode_abs_val = f"{str_mulai_abs} s/d {str_selesai_abs}"
 
-    # 2. MENGAMBIL TOTAL MEMBER SECARA OTOMATIS DARI DB_SHIFT
-    total_member_db = 0
-    try:
-        df_shift_member = conn.query("SELECT COUNT(*) as total FROM db_shift;", ttl="0s")
-        if len(df_shift_member) > 0:
-            total_member_db = int(df_shift_member['total'].iloc[0])
-    except Exception as e:
-        total_member_db = 0
-
-    # 3. INPUT SHIFT DAN LEADER SEJAJAR
+    # 2. INPUT SHIFT (PUTIH / BIRU) DAN LEADER
     col_a, col_b = st.columns(2)
     with col_a:
         shift = st.selectbox("Shift :", ["Putih", "Biru"], key="abs_shift_select")
     with col_b:
         leader = st.text_input("Leader :", key="abs_leader_input")
 
-    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN HADIR
+    shift_clean = str(shift).strip()
+
+    # 3. MENGAMBIL TOTAL MEMBER KHUSUS UNTUK SHIFT TERPILIH DARI DB_SHIFT
+    total_member_shift = 0
+    try:
+        query_shift_cnt = text("SELECT COUNT(*) as total FROM db_shift WHERE LOWER(TRIM(shift)) = LOWER(TRIM(:sh));")
+        df_shift_member = conn.query(query_shift_cnt, params={"sh": shift_clean}, ttl="0s")
+        if len(df_shift_member) > 0:
+            total_member_shift = int(df_shift_member['total'].iloc[0])
+    except Exception as e:
+        total_member_shift = 0
+
+    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN TOTAL HADIR
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
     
     if 'jumlah_input_absensi' not in st.session_state:
@@ -280,7 +286,7 @@ elif st.session_state.page == 'input_absensi':
             if nama_val.strip() != "":
                 total_tidak_hadir += 1
 
-    total_hadir = total_member_db - total_tidak_hadir
+    total_hadir = total_member_shift - total_tidak_hadir
     if total_hadir < 0:
         total_hadir = 0
 
@@ -289,9 +295,19 @@ elif st.session_state.page == 'input_absensi':
     # 📌 DASHBOARD KOTAK RINGKASAN HADIR & TIDAK HADIR
     col_m1, col_m2 = st.columns(2)
     with col_m1:
-        st.markdown(f"<div style='background-color:#f8d7da; padding:10px; border-radius:5px; text-align:center; color:#721c24;'><b>Total Tidak Hadir</b><br><span style='font-size:20px;'>{total_tidak_hadir} orang</span></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style='background-color:#f8d7da; padding:12px; border-radius:6px; text-align:center; color:#721c24;'>
+                <b>Total Tidak Hadir</b><br>
+                <span style='font-size:22px; font-weight:bold;'>{total_tidak_hadir} orang</span>
+            </div>
+        """, unsafe_allow_html=True)
     with col_m2:
-        st.markdown(f"<div style='background-color:#d4edda; padding:10px; border-radius:5px; text-align:center; color:#155724;'><b>Total Hadir</b><br><span style='font-size:20px; font-weight:bold;'>{total_hadir} orang</span></div>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style='background-color:#d4edda; padding:12px; border-radius:6px; text-align:center; color:#155724;'>
+                <b>Total Hadir ({shift_clean})</b><br>
+                <span style='font-size:22px; font-weight:bold;'>{total_hadir} orang</span>
+            </div>
+        """, unsafe_allow_html=True)
 
     st.write("---")
     st.subheader("Detail Ketidakhadiran / Kondisi:")
@@ -332,14 +348,14 @@ elif st.session_state.page == 'input_absensi':
                             connection.execute(query, {
                                 "user_input": st.session_state.user_info.get("nama", ""),
                                 "tanggal": str(periode_abs_val),
-                                "shift": shift,
+                                "shift": shift_clean,
                                 "leader": leader,
-                                "total_member": total_member_db,
+                                "total_member": total_member_shift,
                                 "kategori": kat,
                                 "nama_karyawan": nm
                             })
 
-            st.success("Data Absensi Berhasil Disimpan ke PostgreSQL!")
+            st.success("✅ Data Absensi Berhasil Disimpan ke PostgreSQL!")
             st.session_state.jumlah_input_absensi = {kat: 1 for kat in kategori_absensi}
             st.session_state.page = 'select_menu'
             st.rerun()
