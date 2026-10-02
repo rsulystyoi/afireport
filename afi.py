@@ -393,7 +393,7 @@ elif st.session_state.page == 'input_absensi':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (PILIHAN TOMBOL FETCH PUTIH / BIRU / SEMUA)
+# 4. HALAMAN SCHEDULE SHIFT (PERIODE + SHIFT S1/S2/NS & GRUP PUTIH/BIRU)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -401,13 +401,25 @@ elif st.session_state.page == 'input_overtime':
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     
     st.write("")
+
+    # AUTO MIGRATION: Tambahkan kolom shift_jam ke db_shift jika belum ada
+    try:
+        with conn.engine.begin() as connection:
+            connection.execute(text("ALTER TABLE db_shift ADD COLUMN IF NOT EXISTS shift_jam VARCHAR(20);"))
+    except Exception:
+        pass
     
-    # PERIODE 2 KOLOM TANGGAL TERPISAH
-    col_p1, col_p2 = st.columns(2)
+    # -----------------------------------------------------------------
+    # 1. PERIODE TANGGAL & PILIHAN SHIFT (S1, S2, NS)
+    # -----------------------------------------------------------------
+    col_p1, col_p2, col_p3 = st.columns([2, 2, 1.5])
     with col_p1:
         tgl_mulai_input = st.date_input("Dari Tanggal :", value=datetime.now(), key="ot_tgl_mulai")
     with col_p2:
         tgl_selesai_input = st.date_input("Sampai Tanggal :", value=datetime.now(), key="ot_tgl_selesai")
+    with col_p3:
+        # Pilihan Shift Jam Kerja: S1, S2, NS
+        shift_jam_val = st.selectbox("Shift Kerja :", ["S1", "S2", "NS"], key="ot_shift_jam_select")
     
     str_mulai = tgl_mulai_input.strftime("%d/%m/%Y")
     str_selesai = tgl_selesai_input.strftime("%d/%m/%Y")
@@ -427,10 +439,8 @@ elif st.session_state.page == 'input_overtime':
             df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
             
             if len(df_karyawan_fetched) > 0:
-                # Normalisasi teks shift di Pandas
                 df_karyawan_fetched['shift_clean'] = df_karyawan_fetched['shift'].astype(str).str.strip().str.lower()
                 
-                # Filter berdasarkan pilihan target_shift
                 if target_shift == "putih":
                     df_filtered = df_karyawan_fetched[df_karyawan_fetched['shift_clean'].isin(['putih', 'shift 1', '1'])]
                 elif target_shift == "biru":
@@ -458,11 +468,11 @@ elif st.session_state.page == 'input_overtime':
                         })
                     
                     st.session_state.data_rows_ot = fetched_rows
-                    label_shift_txt = f"Shift {target_shift.capitalize()}" if target_shift else "Semua Shift"
+                    label_shift_txt = f"Grup {target_shift.capitalize()}" if target_shift else "Semua Grup"
                     st.success(f"✅ Berhasil memuat {len(fetched_rows)} data karyawan ({label_shift_txt})!")
                     st.rerun()
                 else:
-                    label_shift_txt = f"Shift {target_shift.capitalize()}" if target_shift else ""
+                    label_shift_txt = f"Grup {target_shift.capitalize()}" if target_shift else ""
                     st.warning(f"⚠️ Tidak ditemukan data karyawan untuk **{label_shift_txt}** di Database Karyawan.")
             else:
                 st.warning("⚠️ Belum ada data di Database Karyawan.")
@@ -472,19 +482,19 @@ elif st.session_state.page == 'input_overtime':
     # -----------------------------------------------------------------
     # BARIS TOMBOL PILIHAN AMBIL DATA DARI DB KARYAWAN
     # -----------------------------------------------------------------
-    st.write(" **Ambil Data Dari Database Karyawan**")
+    st.write("💡 **Ambil Data Dari Database Karyawan:**")
     col_b1, col_b2, col_b3 = st.columns(3)
     
     with col_b1:
-        if st.button("Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
+        if st.button("🔄 Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
             load_karyawan_to_shift("putih")
             
     with col_b2:
-        if st.button("Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
+        if st.button("🔄 Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
             load_karyawan_to_shift("biru")
 
     with col_b3:
-        if st.button("Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
+        if st.button("👥 Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
             load_karyawan_to_shift(None)
 
     st.write("")
@@ -505,7 +515,7 @@ elif st.session_state.page == 'input_overtime':
     col_l4.markdown("<div class='table-header'>Job</div>", unsafe_allow_html=True)
     col_l5.markdown("<div class='table-header'>Titik Jemputan</div>", unsafe_allow_html=True)
     col_l6.markdown("<div class='table-header'>No HP</div>", unsafe_allow_html=True)
-    col_l7.markdown("<div class='table-header'>Shift</div>", unsafe_allow_html=True)
+    col_l7.markdown("<div class='table-header'>Grup Shift</div>", unsafe_allow_html=True)
     col_l8.markdown("<div class='table-header' style='text-align:center;'>[+]</div>", unsafe_allow_html=True)
 
     # Render Baris Input Dinamis
@@ -527,7 +537,7 @@ elif st.session_state.page == 'input_overtime':
         with c6:
             st.session_state.data_rows_ot[i]["nohp"] = st.text_input("No HP", value=row.get("nohp", ""), key=f"ot_nohp_{i}", label_visibility="collapsed", placeholder="08xxxxxxxxxx")
         with c7:
-            # Pilihan Shift Hanya Putih dan Biru
+            # Pilihan Grup Shift: Putih dan Biru
             opts_shift = ["Putih", "Biru"]
             s_val = str(row.get("shift", "Putih"))
             idx_s = opts_shift.index(s_val) if s_val in opts_shift else 0
@@ -558,12 +568,13 @@ elif st.session_state.page == 'input_overtime':
                     nm_ot = st.session_state.get(f"ot_nama_{k}", row_ot["nama"]).strip()
                     if nm_ot != "":
                         query = text("""
-                            INSERT INTO db_shift (user_input, periode, nama, nik, section, job, titik_jemputan, no_hp, shift)
-                            VALUES (:user_input, :periode, :nama, :nik, :section, :job, :titik_jemputan, :no_hp, :shift)
+                            INSERT INTO db_shift (user_input, periode, shift_jam, nama, nik, section, job, titik_jemputan, no_hp, shift)
+                            VALUES (:user_input, :periode, :shift_jam, :nama, :nik, :section, :job, :titik_jemputan, :no_hp, :shift)
                         """)
                         connection.execute(query, {
                             "user_input": str(st.session_state.user_info.get("nama", "")),
                             "periode": str(periode_val),
+                            "shift_jam": str(shift_jam_val),  # Menyimpan nilai S1 / S2 / NS
                             "nama": str(nm_ot),
                             "nik": str(st.session_state.get(f"ot_nik_{k}", row_ot["nik"])),
                             "section": str(st.session_state.get(f"ot_section_{k}", row_ot["section"])),
@@ -573,7 +584,7 @@ elif st.session_state.page == 'input_overtime':
                             "shift": str(st.session_state.get(f"ot_shift_{k}", row_ot["shift"]))
                         })
 
-            st.success("✅ Data Schedule Shift Berhasil Disimpan ke Database!")
+            st.success(f"✅ Data Schedule Shift ({shift_jam_val}) Berhasil Disimpan ke Database!")
             reset_data_ot()
             st.session_state.page = 'select_menu'
             st.rerun()
