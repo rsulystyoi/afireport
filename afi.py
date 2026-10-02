@@ -228,7 +228,7 @@ elif st.session_state.page == 'select_menu':
             st.rerun()
 
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER & HADIR OTOMATIS DARI DB_SHIFT)
+# 3. HALAMAN INPUT ABSENSI (3 INDIKATOR: TOTAL MEMBER, TIDAK HADIR, HADIR)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -236,7 +236,7 @@ elif st.session_state.page == 'input_absensi':
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
     
-    # Paksa bersihkan cache data agar perhitungan selalu real-time
+    # Bersihkan cache Streamlit agar data db_shift terbaru langsung terbaca secara live
     st.cache_data.clear()
 
     # 1. PERIODE 2 KOLOM TANGGAL TERPISAH
@@ -263,12 +263,11 @@ elif st.session_state.page == 'input_absensi':
 
     shift_clean = str(shift).strip().lower()
 
-    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT DENGAN PANDAS (PASTI AKURAT)
+    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT DENGAN PANDAS
     total_member_shift = 0
     try:
         df_all_shift = conn.query("SELECT id, nama, shift FROM db_shift;", ttl="0s")
         if len(df_all_shift) > 0 and 'shift' in df_all_shift.columns:
-            # Mengubah semua kolom shift menjadi string, hilangkan spasi & kecilkan huruf
             df_all_shift['shift_clean'] = df_all_shift['shift'].astype(str).str.strip().str.lower()
             
             if shift_clean == "putih":
@@ -299,18 +298,28 @@ elif st.session_state.page == 'input_absensi':
 
     st.write("---")
 
-    # 📌 DASHBOARD KOTAK RINGKASAN HADIR & TIDAK HADIR
-    col_m1, col_m2 = st.columns(2)
+    # 📌 DASHBOARD 3 KOTAK RINGKASAN (TOTAL MEMBER, TIDAK HADIR, HADIR)
+    col_m1, col_m2, col_m3 = st.columns(3)
+    
     with col_m1:
         st.markdown(f"""
-            <div style='background-color:#f8d7da; padding:12px; border-radius:6px; text-align:center; color:#721c24;'>
+            <div style='background-color:#e2e3e5; border:1px solid #d6d8db; padding:12px; border-radius:6px; text-align:center; color:#383d41;'>
+                <b>Total Member ({shift})</b><br>
+                <span style='font-size:22px; font-weight:bold;'>{total_member_shift} orang</span>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_m2:
+        st.markdown(f"""
+            <div style='background-color:#f8d7da; border:1px solid #f5c6cb; padding:12px; border-radius:6px; text-align:center; color:#721c24;'>
                 <b>Total Tidak Hadir</b><br>
                 <span style='font-size:22px; font-weight:bold;'>{total_tidak_hadir} orang</span>
             </div>
         """, unsafe_allow_html=True)
-    with col_m2:
+
+    with col_m3:
         st.markdown(f"""
-            <div style='background-color:#d4edda; padding:12px; border-radius:6px; text-align:center; color:#155724;'>
+            <div style='background-color:#d4edda; border:1px solid #c3e6cb; padding:12px; border-radius:6px; text-align:center; color:#155724;'>
                 <b>Total Hadir ({shift})</b><br>
                 <span style='font-size:22px; font-weight:bold;'>{total_hadir} orang</span>
             </div>
