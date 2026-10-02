@@ -476,15 +476,15 @@ elif st.session_state.page == 'input_overtime':
     col_b1, col_b2, col_b3 = st.columns(3)
     
     with col_b1:
-        if st.button("🔄 Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
+        if st.button("Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
             load_karyawan_to_shift("putih")
             
     with col_b2:
-        if st.button("🔄 Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
+        if st.button("Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
             load_karyawan_to_shift("biru")
 
     with col_b3:
-        if st.button("👥 Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
+        if st.button("Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
             load_karyawan_to_shift(None)
 
     st.write("")
