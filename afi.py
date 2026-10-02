@@ -228,7 +228,7 @@ elif st.session_state.page == 'select_menu':
             st.rerun()
 
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER & HADIR OTOMATIS SESUAI SHIFT)
+# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER & HADIR OTOMATIS DARI DB_SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -261,27 +261,23 @@ elif st.session_state.page == 'input_absensi':
     with col_b:
         leader = st.text_input("Leader :", key="abs_leader_input")
 
-    shift_clean = str(shift).strip()
+    shift_clean = str(shift).strip().lower()
 
-    # 3. AMBIL TOTAL MEMBER SESUAI SHIFT TERPILIH DARI DB_SHIFT
+    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT DENGAN PANDAS (PASTI AKURAT)
     total_member_shift = 0
     try:
-        # Menyeragamkan pencarian shift ke Putih (Shift 1) / Biru (Shift 2)
-        if shift_clean.lower() == "putih":
-            query_cnt = text("""
-                SELECT COUNT(*) as total FROM db_shift 
-                WHERE LOWER(TRIM(shift)) IN ('putih', 'shift 1', '1');
-            """)
-        else:
-            query_cnt = text("""
-                SELECT COUNT(*) as total FROM db_shift 
-                WHERE LOWER(TRIM(shift)) IN ('biru', 'shift 2', '2');
-            """)
+        df_all_shift = conn.query("SELECT id, nama, shift FROM db_shift;", ttl="0s")
+        if len(df_all_shift) > 0 and 'shift' in df_all_shift.columns:
+            # Mengubah semua kolom shift menjadi string, hilangkan spasi & kecilkan huruf
+            df_all_shift['shift_clean'] = df_all_shift['shift'].astype(str).str.strip().str.lower()
             
-        df_shift_cnt = conn.query(query_cnt, ttl="0s")
-        if len(df_shift_cnt) > 0:
-            total_member_shift = int(df_shift_cnt['total'].iloc[0])
-    except Exception as e_cnt:
+            if shift_clean == "putih":
+                df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['putih', 'shift 1', '1'])]
+            else:
+                df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['biru', 'shift 2', '2'])]
+                
+            total_member_shift = len(df_filtered)
+    except Exception as e_fetch:
         total_member_shift = 0
 
     # 4. MENGHITUNG TOTAL TIDAK HADIR DAN HADIR
@@ -315,7 +311,7 @@ elif st.session_state.page == 'input_absensi':
     with col_m2:
         st.markdown(f"""
             <div style='background-color:#d4edda; padding:12px; border-radius:6px; text-align:center; color:#155724;'>
-                <b>Total Hadir ({shift_clean})</b><br>
+                <b>Total Hadir ({shift})</b><br>
                 <span style='font-size:22px; font-weight:bold;'>{total_hadir} orang</span>
             </div>
         """, unsafe_allow_html=True)
@@ -359,7 +355,7 @@ elif st.session_state.page == 'input_absensi':
                             connection.execute(query, {
                                 "user_input": st.session_state.user_info.get("nama", ""),
                                 "tanggal": str(periode_abs_val),
-                                "shift": shift_clean,
+                                "shift": shift,
                                 "leader": leader,
                                 "total_member": total_member_shift,
                                 "kategori": kat,
