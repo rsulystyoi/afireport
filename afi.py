@@ -228,7 +228,7 @@ elif st.session_state.page == 'select_menu':
             st.rerun()
 
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (3 INDIKATOR: TOTAL MEMBER, TIDAK HADIR, HADIR)
+# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER KESELURUHAN & HADIR PER SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -236,7 +236,7 @@ elif st.session_state.page == 'input_absensi':
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
     
-    # Bersihkan cache Streamlit agar data db_shift terbaru langsung terbaca secara live
+    # Bersihkan cache Streamlit agar data db_shift terbaru selalu terbaca live
     st.cache_data.clear()
 
     # 1. PERIODE 2 KOLOM TANGGAL TERPISAH
@@ -263,23 +263,31 @@ elif st.session_state.page == 'input_absensi':
 
     shift_clean = str(shift).strip().lower()
 
-    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT DENGAN PANDAS
-    total_member_shift = 0
+    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT
+    total_member_global = 0  # Untuk Kotak Abu-abu (Semua Member)
+    total_member_shift = 0   # Untuk Perhitungan Total Hadir Per Shift
+
     try:
         df_all_shift = conn.query("SELECT id, nama, shift FROM db_shift;", ttl="0s")
-        if len(df_all_shift) > 0 and 'shift' in df_all_shift.columns:
-            df_all_shift['shift_clean'] = df_all_shift['shift'].astype(str).str.strip().str.lower()
-            
-            if shift_clean == "putih":
-                df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['putih', 'shift 1', '1'])]
-            else:
-                df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['biru', 'shift 2', '2'])]
+        if len(df_all_shift) > 0:
+            # Total Member Keseluruhan (Tanpa Filter Shift)
+            total_member_global = len(df_all_shift)
+
+            if 'shift' in df_all_shift.columns:
+                df_all_shift['shift_clean'] = df_all_shift['shift'].astype(str).str.strip().str.lower()
                 
-            total_member_shift = len(df_filtered)
+                # Filter khusus untuk perhitungan Total Hadir per Shift
+                if shift_clean == "putih":
+                    df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['putih', 'shift 1', '1'])]
+                else:
+                    df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['biru', 'shift 2', '2'])]
+                    
+                total_member_shift = len(df_filtered)
     except Exception as e_fetch:
+        total_member_global = 0
         total_member_shift = 0
 
-    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN HADIR
+    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN TOTAL HADIR
     kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
     
     if 'jumlah_input_absensi' not in st.session_state:
@@ -292,24 +300,27 @@ elif st.session_state.page == 'input_absensi':
             if nama_val.strip() != "":
                 total_tidak_hadir += 1
 
+    # Total Hadir dihitung dari Member Shift Terpilih - Total Tidak Hadir
     total_hadir = total_member_shift - total_tidak_hadir
     if total_hadir < 0:
         total_hadir = 0
 
     st.write("---")
 
-    # 📌 DASHBOARD 3 KOTAK RINGKASAN (TOTAL MEMBER, TIDAK HADIR, HADIR)
+    # 📌 DASHBOARD 3 KOTAK RINGKASAN
     col_m1, col_m2, col_m3 = st.columns(3)
     
     with col_m1:
+        # KOTAK ABU-ABU: Total Member Keseluruhan (Global)
         st.markdown(f"""
             <div style='background-color:#e2e3e5; border:1px solid #d6d8db; padding:12px; border-radius:6px; text-align:center; color:#383d41;'>
-                <b>Total Member ({shift})</b><br>
-                <span style='font-size:22px; font-weight:bold;'>{total_member_shift} orang</span>
+                <b>Total Member</b><br>
+                <span style='font-size:22px; font-weight:bold;'>{total_member_global} orang</span>
             </div>
         """, unsafe_allow_html=True)
 
     with col_m2:
+        # KOTAK MERAH: Total Tidak Hadir
         st.markdown(f"""
             <div style='background-color:#f8d7da; border:1px solid #f5c6cb; padding:12px; border-radius:6px; text-align:center; color:#721c24;'>
                 <b>Total Tidak Hadir</b><br>
@@ -318,6 +329,7 @@ elif st.session_state.page == 'input_absensi':
         """, unsafe_allow_html=True)
 
     with col_m3:
+        # KOTAK HIJAU: Total Hadir Berdasarkan Shift Terpilih
         st.markdown(f"""
             <div style='background-color:#d4edda; border:1px solid #c3e6cb; padding:12px; border-radius:6px; text-align:center; color:#155724;'>
                 <b>Total Hadir ({shift})</b><br>
@@ -366,7 +378,7 @@ elif st.session_state.page == 'input_absensi':
                                 "tanggal": str(periode_abs_val),
                                 "shift": shift,
                                 "leader": leader,
-                                "total_member": total_member_shift,
+                                "total_member": total_member_global,
                                 "kategori": kat,
                                 "nama_karyawan": nm
                             })
