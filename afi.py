@@ -393,11 +393,12 @@ elif st.session_state.page == 'input_absensi':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (AMBIL DATA DB KARYAWAN & SHIFT PUTIH/BIRU)
+# 4. HALAMAN SCHEDULE SHIFT (PILIHAN TOMBOL FETCH PUTIH / BIRU / SEMUA)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📝 Schedule Shift")
+    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     
     st.write("")
     
@@ -418,22 +419,33 @@ elif st.session_state.page == 'input_overtime':
     st.write("---")
     
     # -----------------------------------------------------------------
-    # TOMBOL AMBIL DATA DARI DATABASE KARYAWAN
+    # FUNGSI KUSTOM UNTUK MENGAMBIL DATA DARI DB_KARYAWAN
     # -----------------------------------------------------------------
-    col_fetch, col_info = st.columns([2, 3], vertical_alignment="center")
-    with col_fetch:
-        if st.button("Database Karyawan", use_container_width=True, key="btn_fetch_db_karyawan"):
-            try:
-                # Query mengambil data dari db_karyawan
-                df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
+    def load_karyawan_to_shift(target_shift=None):
+        try:
+            st.cache_data.clear()
+            df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
+            
+            if len(df_karyawan_fetched) > 0:
+                # Normalisasi teks shift di Pandas
+                df_karyawan_fetched['shift_clean'] = df_karyawan_fetched['shift'].astype(str).str.strip().str.lower()
                 
-                if len(df_karyawan_fetched) > 0:
+                # Filter berdasarkan pilihan target_shift
+                if target_shift == "putih":
+                    df_filtered = df_karyawan_fetched[df_karyawan_fetched['shift_clean'].isin(['putih', 'shift 1', '1'])]
+                elif target_shift == "biru":
+                    df_filtered = df_karyawan_fetched[df_karyawan_fetched['shift_clean'].isin(['biru', 'shift 2', '2'])]
+                else:
+                    df_filtered = df_karyawan_fetched
+
+                if len(df_filtered) > 0:
                     fetched_rows = []
-                    for _, row_f in df_karyawan_fetched.iterrows():
-                        # Normalisasi nama shift ke Putih / Biru
+                    for _, row_f in df_filtered.iterrows():
                         sh_val = str(row_f.get("shift", "Putih")).strip()
-                        if sh_val not in ["Putih", "Biru"]:
-                            sh_val = "Putih"
+                        if sh_val.lower() not in ["putih", "biru"]:
+                            sh_val = "Putih" if target_shift == "putih" else ("Biru" if target_shift == "biru" else "Putih")
+                        else:
+                            sh_val = "Putih" if sh_val.lower() == "putih" else "Biru"
 
                         fetched_rows.append({
                             "nama": str(row_f.get("nama", "") if pd.notna(row_f.get("nama")) else ""),
@@ -446,15 +458,34 @@ elif st.session_state.page == 'input_overtime':
                         })
                     
                     st.session_state.data_rows_ot = fetched_rows
-                    st.success(f"✅ Berhasil memuat {len(fetched_rows)} data dari Database Karyawan!")
+                    label_shift_txt = f"Shift {target_shift.capitalize()}" if target_shift else "Semua Shift"
+                    st.success(f"✅ Berhasil memuat {len(fetched_rows)} data karyawan ({label_shift_txt})!")
                     st.rerun()
                 else:
-                    st.warning("⚠️ Belum ada data di Database Karyawan.")
-            except Exception as e_fetch:
-                st.error(f"Gagal mengambil data karyawan: {e_fetch}")
+                    label_shift_txt = f"Shift {target_shift.capitalize()}" if target_shift else ""
+                    st.warning(f"⚠️ Tidak ditemukan data karyawan untuk **{label_shift_txt}** di Database Karyawan.")
+            else:
+                st.warning("⚠️ Belum ada data di Database Karyawan.")
+        except Exception as e_fetch:
+            st.error(f"Gagal mengambil data karyawan: {e_fetch}")
 
-    with col_info:
-        st.caption("💡 *Ambil Data Dari Database Karyawan*")
+    # -----------------------------------------------------------------
+    # BARIS TOMBOL PILIHAN AMBIL DATA DARI DB KARYAWAN
+    # -----------------------------------------------------------------
+    st.write(" **Pilih Filter Data Karyawan yang Ingin Dimuat:**")
+    col_b1, col_b2, col_b3 = st.columns(3)
+    
+    with col_b1:
+        if st.button("🔄 Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
+            load_karyawan_to_shift("putih")
+            
+    with col_b2:
+        if st.button("🔄 Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
+            load_karyawan_to_shift("biru")
+
+    with col_b3:
+        if st.button("👥 Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
+            load_karyawan_to_shift(None)
 
     st.write("")
     
@@ -552,7 +583,6 @@ elif st.session_state.page == 'input_overtime':
             reset_data_ot()
             st.session_state.page = 'select_menu'
             st.rerun()
-
 # =====================================================================
 # 5. HALAMAN INPUT DAILY REPORT (100% SERAP DATA DARI DB_SHIFT)
 # =====================================================================
