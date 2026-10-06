@@ -393,7 +393,7 @@ elif st.session_state.page == 'input_absensi':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (100% FIX FETCH DB PUTIH / BIRU / ALL)
+# 4. HALAMAN SCHEDULE SHIFT (PERBAIKAN TOTAL FETCH DB PUTIH / BIRU / ALL)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -430,48 +430,52 @@ elif st.session_state.page == 'input_overtime':
     st.write("---")
     
     # -----------------------------------------------------------------
-    # FUNGSI KUSTOM UNTUK MENGAMBIL DATA DARI DB_KARYAWAN (100% AKURAT)
+    # FUNGSI KUSTOM UNTUK MENGAMBIL DATA DARI DB_KARYAWAN (FIXED FILTER)
     # -----------------------------------------------------------------
     def load_karyawan_to_shift(target_shift=None):
         try:
             st.cache_data.clear()
-            # 1. Ambil seluruh isi db_karyawan tanpa filter SQL keras
+            # 1. Ambil seluruh data dari db_karyawan
             df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
             
             if len(df_karyawan_fetched) > 0:
-                fetched_rows = []
+                # Cleaning data shift secara serentak
+                df_karyawan_fetched['shift_clean'] = df_karyawan_fetched['shift'].fillna("").astype(str).str.strip().str.lower()
                 
-                for _, row_f in df_karyawan_fetched.iterrows():
-                    nm_val = str(row_f.get("nama", "") if pd.notna(row_f.get("nama")) else "").strip()
-                    raw_sh = str(row_f.get("shift", "") if pd.notna(row_f.get("shift")) else "").strip().lower()
-                    
-                    # Abaikan baris placeholder bawaan yang kosong
-                    if nm_val != "" and nm_val != "Nama Lengkap":
-                        # 2. Penentuan Grup Shift secara fleksibel & toleran
-                        if any(k in raw_sh for k in ['putih', 'shift 1', 's1', '1']):
-                            sh_val = "Putih"
-                        elif any(k in raw_sh for k in ['biru', 'shift 2', 's2', '2']):
-                            sh_val = "Biru"
-                        else:
-                            sh_val = "NS"  # Default ke NS jika kosong / diluar Putih & Biru
+                # Fungsi pemetaan grup shift yang sangat fleksibel
+                def map_grup_shift(val_str):
+                    if any(x in val_str for x in ['putih', 'shift 1', 's1']) or val_str == '1':
+                        return "Putih"
+                    elif any(x in val_str for x in ['biru', 'shift 2', 's2']) or val_str == '2':
+                        return "Biru"
+                    else:
+                        return "NS"
 
-                        row_data = {
+                df_karyawan_fetched['grup_mapped'] = df_karyawan_fetched['shift_clean'].apply(map_grup_shift)
+
+                # Filter sesuai tombol yang ditekan
+                if target_shift == "putih":
+                    df_filtered = df_karyawan_fetched[df_karyawan_fetched['grup_mapped'] == "Putih"]
+                elif target_shift == "biru":
+                    df_filtered = df_karyawan_fetched[df_karyawan_fetched['grup_mapped'] == "Biru"]
+                else:
+                    df_filtered = df_karyawan_fetched
+
+                fetched_rows = []
+                for _, row_f in df_filtered.iterrows():
+                    nm_val = str(row_f.get("nama", "") if pd.notna(row_f.get("nama")) else "").strip()
+                    
+                    # Abaikan baris placeholder kosong bawaan
+                    if nm_val != "" and nm_val != "Nama Lengkap":
+                        fetched_rows.append({
                             "nama": nm_val,
                             "nik": str(row_f.get("nik", "") if pd.notna(row_f.get("nik")) else "").strip(),
                             "section": str(row_f.get("section", "") if pd.notna(row_f.get("section")) else "").strip(),
                             "job": str(row_f.get("job", "") if pd.notna(row_f.get("job")) else "").strip(),
                             "jemputan": str(row_f.get("titik_jemputan", "") if pd.notna(row_f.get("titik_jemputan")) else "").strip(),
                             "nohp": str(row_f.get("no_hp", "") if pd.notna(row_f.get("no_hp")) else "").strip(),
-                            "grup_shift": sh_val
-                        }
-
-                        # 3. Penyaringan berdasarkan tombol yang diklik
-                        if target_shift == "putih" and sh_val == "Putih":
-                            fetched_rows.append(row_data)
-                        elif target_shift == "biru" and sh_val == "Biru":
-                            fetched_rows.append(row_data)
-                        elif target_shift is None:  # Ambil Semua DB Karyawan
-                            fetched_rows.append(row_data)
+                            "grup_shift": str(row_f.get("grup_mapped", "NS"))
+                        })
 
                 if len(fetched_rows) > 0:
                     st.session_state.data_rows_ot = fetched_rows
@@ -480,7 +484,7 @@ elif st.session_state.page == 'input_overtime':
                     st.rerun()
                 else:
                     label_shift_txt = f"Grup {target_shift.capitalize()}" if target_shift else ""
-                    st.warning(f"⚠️ Tidak ditemukan data karyawan terdaftar untuk **{label_shift_txt}** di Database Karyawan.")
+                    st.warning(f"⚠️️ Tidak ditemukan data karyawan terdaftar untuk **{label_shift_txt}** di Database Karyawan.")
             else:
                 st.warning("⚠️ Belum ada data di Database Karyawan (`db_karyawan`).")
         except Exception as e_fetch:
@@ -585,7 +589,6 @@ elif st.session_state.page == 'input_overtime':
                         hp_ot = str(st.session_state.get(f"ot_nohp_{k}", st.session_state.data_rows_ot[k]["nohp"])).strip()
                         grp_ot = str(st.session_state.get(f"ot_grup_{k}", st.session_state.data_rows_ot[k]["grup_shift"])).strip()
 
-                        # Simpan jam shift (S1/S2/NS) ke kolom shift utama, dan simpan grup di db_shift
                         query = text("""
                             INSERT INTO db_shift (user_input, periode, shift_jam, nama, nik, section, job, titik_jemputan, no_hp, shift)
                             VALUES (:user_input, :periode, :shift_jam, :nama, :nik, :section, :job, :titik_jemputan, :no_hp, :shift)
