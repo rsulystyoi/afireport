@@ -392,7 +392,7 @@ elif st.session_state.page == 'input_absensi':
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (SOLUSI PERMANEN WIDGET STATE OVERWRITE)
+# 4. HALAMAN SCHEDULE SHIFT (PERBAIKAN ERROR SQLHASHING & WIDGET RESET)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -429,7 +429,7 @@ elif st.session_state.page == 'input_overtime':
     st.write("---")
     
     # -----------------------------------------------------------------
-    # FUNGSI UNTUK MERESET WIDGET KEYS AGAR TIDAK MENIMPA DATA BARU
+    # FUNGSI UNTUK MERESET WIDGET KEYS AGAR DATA TERSIMPANKAN DENGAN BENAR
     # -----------------------------------------------------------------
     def clear_widget_keys():
         keys_to_clear = [k for k in st.session_state.keys() if k.startswith("ot_")]
@@ -438,23 +438,15 @@ elif st.session_state.page == 'input_overtime':
                 del st.session_state[k]
 
     # -----------------------------------------------------------------
-    # FUNGSI AMBIL DATA KARYAWAN DENGAN HYBRID FILTERING
+    # FUNGSI AMBIL DATA KARYAWAN (TANPA ERROR HASHING TEXT)
     # -----------------------------------------------------------------
     def load_karyawan_to_shift(target_shift=None):
         try:
             st.cache_data.clear()
-            # Reset kunci widget lama
             clear_widget_keys()
 
-            # Query SQL dengan kondisi pencarian yang sangat terbuka
-            if target_shift == "putih":
-                query_sql = text("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan WHERE LOWER(TRIM(shift)) LIKE '%putih%' OR LOWER(TRIM(shift)) IN ('shift 1', '1', 's1') ORDER BY id ASC;")
-            elif target_shift == "biru":
-                query_sql = text("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan WHERE LOWER(TRIM(shift)) LIKE '%biru%' OR LOWER(TRIM(shift)) IN ('shift 2', '2', 's2') ORDER BY id ASC;")
-            else:
-                query_sql = text("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;")
-            
-            df_karyawan_fetched = conn.query(query_sql, ttl="0s")
+            # Menggunakan string biasa (bukan text()) untuk mencegah error unhashable TextClause
+            df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
             
             if len(df_karyawan_fetched) > 0:
                 fetched_rows = []
@@ -471,7 +463,7 @@ elif st.session_state.page == 'input_overtime':
                         else:
                             sh_val = "NS"
 
-                        fetched_rows.append({
+                        row_data = {
                             "nama": nm_val,
                             "nik": str(row_f.get("nik", "") if pd.notna(row_f.get("nik")) else "").strip(),
                             "section": str(row_f.get("section", "") if pd.notna(row_f.get("section")) else "").strip(),
@@ -479,7 +471,15 @@ elif st.session_state.page == 'input_overtime':
                             "jemputan": str(row_f.get("titik_jemputan", "") if pd.notna(row_f.get("titik_jemputan")) else "").strip(),
                             "nohp": str(row_f.get("no_hp", "") if pd.notna(row_f.get("no_hp")) else "").strip(),
                             "grup_shift": sh_val
-                        })
+                        }
+
+                        # Penyaringan berdasarkan tombol yang diklik
+                        if target_shift == "putih" and sh_val == "Putih":
+                            fetched_rows.append(row_data)
+                        elif target_shift == "biru" and sh_val == "Biru":
+                            fetched_rows.append(row_data)
+                        elif target_shift is None:
+                            fetched_rows.append(row_data)
 
                 if len(fetched_rows) > 0:
                     st.session_state.data_rows_ot = fetched_rows
