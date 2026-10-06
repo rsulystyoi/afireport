@@ -503,7 +503,7 @@ elif st.session_state.page == 'input_overtime':
 
     # Inisialisasi DataFrame default jika belum ada
     # KODE BARU (TABEL BENAR-BENAR KOSONG DEFAULT):
-    if "df_schedule_shift" not in st.session_state:
+ if "df_schedule_shift" not in st.session_state:
     st.session_state.df_schedule_shift = pd.DataFrame(columns=[
         "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
     ])
@@ -570,11 +570,15 @@ elif st.session_state.page == 'input_overtime':
             else:
                 st.warning("⚠️ Silakan isi minimal satu data karyawan sebelum Submit.")
 
-    with col_submit2:
-        if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_ot_final"):
-            st.session_state.df_schedule_shift = pd.DataFrame()
-            st.session_state.page = 'select_menu'
-            st.rerun()
+  with col_submit2:
+    if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_ot_final"):
+        # 📌 LETAKKAN DI SINI (RESET SAAT TOMBOL KEMBALI DIKLIK):
+        st.session_state.df_schedule_shift = pd.DataFrame(columns=[
+            "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
+        ])
+        
+        st.session_state.page = 'select_menu'
+        st.rerun()
 # =====================================================================
 # 5. HALAMAN INPUT DAILY REPORT (100% SERAP DATA DARI DB_SHIFT)
 # =====================================================================
