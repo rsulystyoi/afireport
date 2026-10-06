@@ -427,8 +427,8 @@ elif st.session_state.page == 'input_overtime':
 
     st.write("---")
     
-    # -----------------------------------------------------------------
-    # 2. FUNGSI AMBIL DATA DARI DB_KARYAWAN
+  # -----------------------------------------------------------------
+    # 2. FUNGSI AMBIL DATA DARI DB_KARYAWAN (4 PILIHAN FILTER)
     # -----------------------------------------------------------------
     def load_karyawan_df(target_filter=None):
         try:
@@ -450,15 +450,18 @@ elif st.session_state.page == 'input_overtime':
 
                 df_karyawan_fetched['Grup Shift'] = df_karyawan_fetched['shift_clean'].apply(map_grup)
 
-                # Filter sesuai tombol
+                # Filter sesuai tombol yang diklik
                 if target_filter == "putih":
                     df_res = df_karyawan_fetched[df_karyawan_fetched['Grup Shift'] == "Putih"].copy()
                 elif target_filter == "biru":
                     df_res = df_karyawan_fetched[df_karyawan_fetched['Grup Shift'] == "Biru"].copy()
+                elif target_filter == "ns":
+                    df_res = df_karyawan_fetched[df_karyawan_fetched['Grup Shift'] == "NS"].copy()
                 else:
                     df_res = df_karyawan_fetched.copy()
 
                 if len(df_res) > 0:
+                    # Rename kolom agar rapi di tabel editor
                     df_res = df_res.rename(columns={
                         "nama": "Nama Lengkap",
                         "nik": "NIK",
@@ -479,10 +482,10 @@ elif st.session_state.page == 'input_overtime':
             st.error(f"Gagal memuat data: {e_f}")
 
     # -----------------------------------------------------------------
-    # 3. BARIS TOMBOL AMBIL DATA
+    # 3. BARIS 4 TOMBOL AMBIL DATA (PUTIH, BIRU, NS, SEMUA)
     # -----------------------------------------------------------------
     st.write("💡 **Ambil Data Dari Database Karyawan:**")
-    col_b1, col_b2, col_b3 = st.columns(3)
+    col_b1, col_b2, col_b3, col_b4 = st.columns(4)
     
     with col_b1:
         if st.button("🔄 Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
@@ -493,18 +496,12 @@ elif st.session_state.page == 'input_overtime':
             load_karyawan_df("biru")
 
     with col_b3:
+        if st.button("🔄 Ambil DB (Shift NS)", use_container_width=True, key="btn_fetch_ns"):
+            load_karyawan_df("ns")
+
+    with col_b4:
         if st.button("👥 Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
             load_karyawan_df(None)
-
-    st.write("")
-    st.markdown("<div style='background-color:#e9ecef; border:1px solid #ccc; text-align:center; padding:6px; font-weight:bold; font-size:15px; border-radius:4px;'>Database Quality Member</div>", unsafe_allow_html=True)
-    st.write("")
-
-    # 📌 INITIALIZATION: TABEL BENAR-BENAR KOSONG SECARA DEFAULT
-    if "df_schedule_shift" not in st.session_state:
-        st.session_state.df_schedule_shift = pd.DataFrame(columns=[
-            "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
-        ])
 
     # -----------------------------------------------------------------
     # 4. TABEL ST.DATA_EDITOR DENGAN STRUKTUR DEFAULT KOSONG
