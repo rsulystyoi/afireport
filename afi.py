@@ -391,7 +391,6 @@ elif st.session_state.page == 'input_absensi':
     with col_submit2:
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
-            st.rerun()
 # =====================================================================
 # 4. HALAMAN SCHEDULE SHIFT (PERBAIKAN TOTAL FETCH DB PUTIH / BIRU / ALL)
 # =====================================================================
