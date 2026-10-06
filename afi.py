@@ -502,10 +502,11 @@ elif st.session_state.page == 'input_overtime':
     st.write("")
 
     # Inisialisasi DataFrame default jika belum ada
-    if "df_schedule_shift" not in st.session_state or len(st.session_state.df_schedule_shift) == 0:
-        st.session_state.df_schedule_shift = pd.DataFrame([{
-            "Nama Lengkap": "", "NIK": "", "Section": "", "Job Deskripsi": "", "Titik Jemputan": "", "No HP": "", "Grup Shift": "Putih"
-        }])
+    # KODE BARU (TABEL BENAR-BENAR KOSONG DEFAULT):
+    if "df_schedule_shift" not in st.session_state:
+    st.session_state.df_schedule_shift = pd.DataFrame(columns=[
+        "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
+    ])
 
     # -----------------------------------------------------------------
     # 4. TABEL ST.DATA_EDITOR (SANGAT CEPAT & BEBAS BUG CACHING)
