@@ -392,16 +392,15 @@ elif st.session_state.page == 'input_absensi':
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (PERBAIKAN ERROR SQLHASHING & WIDGET RESET)
+# 4. HALAMAN SCHEDULE SHIFT (MENGGUNAKAN ST.DATA_EDITOR - STABIL & BEBAS BUG)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📝 Schedule Shift")
     st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
-    
     st.write("")
 
-    # AUTO MIGRATION: Pastikan kolom shift_jam ada di database
+    # AUTO MIGRATION: Pastikan kolom shift_jam ada di db_shift
     try:
         with conn.engine.begin() as connection:
             connection.execute(text("ALTER TABLE db_shift ADD COLUMN IF NOT EXISTS shift_jam VARCHAR(20);"))
@@ -429,151 +428,104 @@ elif st.session_state.page == 'input_overtime':
     st.write("---")
     
     # -----------------------------------------------------------------
-    # FUNGSI UNTUK MERESET WIDGET KEYS AGAR DATA TERSIMPANKAN DENGAN BENAR
+    # 2. FUNGSI AMBIL DATA DARI DB_KARYAWAN DENGAN PANDAS (BEBAS OVERWRITE)
     # -----------------------------------------------------------------
-    def clear_widget_keys():
-        keys_to_clear = [k for k in st.session_state.keys() if k.startswith("ot_")]
-        for k in keys_to_clear:
-            if k not in ["ot_tgl_mulai", "ot_tgl_selesai", "ot_shift_jam_select"]:
-                del st.session_state[k]
-
-    # -----------------------------------------------------------------
-    # FUNGSI AMBIL DATA KARYAWAN (TANPA ERROR HASHING TEXT)
-    # -----------------------------------------------------------------
-    def load_karyawan_to_shift(target_shift=None):
+    def load_karyawan_df(target_filter=None):
         try:
             st.cache_data.clear()
-            clear_widget_keys()
-
-            # Menggunakan string biasa (bukan text()) untuk mencegah error unhashable TextClause
             df_karyawan_fetched = conn.query("SELECT nama, nik, section, job, titik_jemputan, no_hp, shift FROM db_karyawan ORDER BY id ASC;", ttl="0s")
             
             if len(df_karyawan_fetched) > 0:
-                fetched_rows = []
-                for _, row_f in df_karyawan_fetched.iterrows():
-                    nm_val = str(row_f.get("nama", "") if pd.notna(row_f.get("nama")) else "").strip()
-                    raw_sh = str(row_f.get("shift", "") if pd.notna(row_f.get("shift")) else "").strip().lower()
+                # Normalisasi string shift
+                df_karyawan_fetched['shift_clean'] = df_karyawan_fetched['shift'].fillna("").astype(str).str.strip().str.lower()
+                
+                # Pemetaan Grup Shift (Putih, Biru, NS)
+                def map_grup(s_text):
+                    if any(k in s_text for k in ['putih', 'shift 1', 's1', '1']):
+                        return "Putih"
+                    elif any(k in s_text for k in ['biru', 'shift 2', 's2', '2']):
+                        return "Biru"
+                    else:
+                        return "NS"
+
+                df_karyawan_fetched['Grup Shift'] = df_karyawan_fetched['shift_clean'].apply(map_grup)
+
+                # Filter sesuai tombol
+                if target_filter == "putih":
+                    df_res = df_karyawan_fetched[df_karyawan_fetched['Grup Shift'] == "Putih"].copy()
+                elif target_filter == "biru":
+                    df_res = df_karyawan_fetched[df_karyawan_fetched['Grup Shift'] == "Biru"].copy()
+                else:
+                    df_res = df_karyawan_fetched.copy()
+
+                if len(df_res) > 0:
+                    # Rename kolom agar rapi di tabel editor
+                    df_res = df_res.rename(columns={
+                        "nama": "Nama Lengkap",
+                        "nik": "NIK",
+                        "section": "Section",
+                        "job": "Job Deskripsi",
+                        "titik_jemputan": "Titik Jemputan",
+                        "no_hp": "No HP"
+                    })
                     
-                    if nm_val != "" and nm_val != "Nama Lengkap":
-                        # Pemetaan Grup Shift
-                        if any(x in raw_sh for x in ['putih', 'shift 1', 's1', '1']):
-                            sh_val = "Putih"
-                        elif any(x in raw_sh for x in ['biru', 'shift 2', 's2', '2']):
-                            sh_val = "Biru"
-                        else:
-                            sh_val = "NS"
-
-                        row_data = {
-                            "nama": nm_val,
-                            "nik": str(row_f.get("nik", "") if pd.notna(row_f.get("nik")) else "").strip(),
-                            "section": str(row_f.get("section", "") if pd.notna(row_f.get("section")) else "").strip(),
-                            "job": str(row_f.get("job", "") if pd.notna(row_f.get("job")) else "").strip(),
-                            "jemputan": str(row_f.get("titik_jemputan", "") if pd.notna(row_f.get("titik_jemputan")) else "").strip(),
-                            "nohp": str(row_f.get("no_hp", "") if pd.notna(row_f.get("no_hp")) else "").strip(),
-                            "grup_shift": sh_val
-                        }
-
-                        # Penyaringan berdasarkan tombol yang diklik
-                        if target_shift == "putih" and sh_val == "Putih":
-                            fetched_rows.append(row_data)
-                        elif target_shift == "biru" and sh_val == "Biru":
-                            fetched_rows.append(row_data)
-                        elif target_shift is None:
-                            fetched_rows.append(row_data)
-
-                if len(fetched_rows) > 0:
-                    st.session_state.data_rows_ot = fetched_rows
-                    label_shift_txt = f"Grup {target_shift.capitalize()}" if target_shift else "Semua Data Karyawan"
-                    st.success(f"✅ Berhasil memuat {len(fetched_rows)} data karyawan ({label_shift_txt})!")
+                    st.session_state.df_schedule_shift = df_res[["Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"]].reset_index(drop=True)
+                    st.success(f"✅ Berhasil memuat {len(df_res)} data karyawan!")
                     st.rerun()
                 else:
-                    label_shift_txt = f"Grup {target_shift.capitalize()}" if target_shift else ""
-                    st.warning(f"⚠️ Tidak ditemukan data karyawan untuk **{label_shift_txt}** di Database Karyawan.")
+                    st.warning(f"⚠️ Tidak ditemukan data karyawan untuk filter tersebut.")
             else:
-                st.warning("⚠️ Belum ada data di Database Karyawan (`db_karyawan`).")
-        except Exception as e_fetch:
-            st.error(f"Gagal mengambil data karyawan: {e_fetch}")
+                st.warning("⚠️ Database Karyawan (`db_karyawan`) masih kosong.")
+        except Exception as e_f:
+            st.error(f"Gagal memuat data: {e_f}")
 
     # -----------------------------------------------------------------
-    # BARIS TOMBOL PILIHAN AMBIL DATA DARI DB KARYAWAN
+    # 3. BARIS TOMBOL AMBIL DATA
     # -----------------------------------------------------------------
     st.write("💡 **Ambil Data Dari Database Karyawan:**")
     col_b1, col_b2, col_b3 = st.columns(3)
     
     with col_b1:
         if st.button("🔄 Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
-            load_karyawan_to_shift("putih")
+            load_karyawan_df("putih")
             
     with col_b2:
         if st.button("🔄 Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
-            load_karyawan_to_shift("biru")
+            load_karyawan_df("biru")
 
     with col_b3:
         if st.button("👥 Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
-            load_karyawan_to_shift(None)
+            load_karyawan_df(None)
 
     st.write("")
-    
-    # Sub-header Tabel Database Quality Member
     st.markdown("<div style='background-color:#e9ecef; border:1px solid #ccc; text-align:center; padding:6px; font-weight:bold; font-size:15px; border-radius:4px;'>Database Quality Member</div>", unsafe_allow_html=True)
     st.write("")
-    
-    # PROPORSI RASIO TABEL LEBAR SEIMBANG
-    ratio_cols = [0.5, 2.3, 1.2, 1.2, 1.6, 1.6, 1.3, 1.0, 0.4]
 
-    # Header Judul Kolom
-    col_l0, col_l1, col_l2, col_l3, col_l4, col_l5, col_l6, col_l7, col_l8 = st.columns(ratio_cols)
-    col_l0.markdown("<div class='table-header' style='text-align:center;'>No</div>", unsafe_allow_html=True)
-    col_l1.markdown("<div class='table-header'>Nama</div>", unsafe_allow_html=True)
-    col_l2.markdown("<div class='table-header'>NIK</div>", unsafe_allow_html=True)
-    col_l3.markdown("<div class='table-header'>Section</div>", unsafe_allow_html=True)
-    col_l4.markdown("<div class='table-header'>Job</div>", unsafe_allow_html=True)
-    col_l5.markdown("<div class='table-header'>Titik Jemputan</div>", unsafe_allow_html=True)
-    col_l6.markdown("<div class='table-header'>No HP</div>", unsafe_allow_html=True)
-    col_l7.markdown("<div class='table-header'>Grup Shift</div>", unsafe_allow_html=True)
-    col_l8.markdown("<div class='table-header' style='text-align:center;'>[+]</div>", unsafe_allow_html=True)
+    # Inisialisasi DataFrame default jika belum ada
+    if "df_schedule_shift" not in st.session_state or len(st.session_state.df_schedule_shift) == 0:
+        st.session_state.df_schedule_shift = pd.DataFrame([{
+            "Nama Lengkap": "", "NIK": "", "Section": "", "Job Deskripsi": "", "Titik Jemputan": "", "No HP": "", "Grup Shift": "Putih"
+        }])
 
-    # Render Baris Input Dinamis
-    for i, row in enumerate(st.session_state.data_rows_ot):
-        c0, c1, c2, c3, c4, c5, c6, c7, c8 = st.columns(ratio_cols)
-        
-        with c0:
-            st.markdown(f"<div style='text-align:center; padding-top:6px; font-size:13px; font-weight:bold;'>{i+1}</div>", unsafe_allow_html=True)
-        with c1:
-            st.session_state.data_rows_ot[i]["nama"] = st.text_input("Nama", value=row.get("nama", ""), key=f"ot_nama_{i}", label_visibility="collapsed", placeholder="Nama Lengkap")
-        with c2:
-            st.session_state.data_rows_ot[i]["nik"] = st.text_input("NIK", value=row.get("nik", ""), key=f"ot_nik_{i}", label_visibility="collapsed", placeholder="NIK")
-        with c3:
-            st.session_state.data_rows_ot[i]["section"] = st.text_input("Section", value=row.get("section", ""), key=f"ot_section_{i}", label_visibility="collapsed", placeholder="Section")
-        with c4:
-            st.session_state.data_rows_ot[i]["job"] = st.text_input("Job", value=row.get("job", ""), key=f"ot_job_{i}", label_visibility="collapsed", placeholder="Job Deskripsi")
-        with c5:
-            st.session_state.data_rows_ot[i]["jemputan"] = st.text_input("Jemputan", value=row.get("jemputan", ""), key=f"ot_jemputan_{i}", label_visibility="collapsed", placeholder="Titik Lokasi")
-        with c6:
-            st.session_state.data_rows_ot[i]["nohp"] = st.text_input("No HP", value=row.get("nohp", ""), key=f"ot_nohp_{i}", label_visibility="collapsed", placeholder="08xxxxxxxxxx")
-        with c7:
-            opts_grup = ["Putih", "Biru", "NS"]
-            g_val = str(row.get("grup_shift", row.get("shift", "Putih"))).strip()
-            if g_val not in opts_grup:
-                g_val = "NS"
-            idx_g = opts_grup.index(g_val)
-            st.session_state.data_rows_ot[i]["grup_shift"] = st.selectbox("Grup Shift", options=opts_grup, index=idx_g, key=f"ot_grup_{i}", label_visibility="collapsed")
-        with c8:
-            if i == len(st.session_state.data_rows_ot) - 1:
-                if st.button("➕", key=f"btn_ot_plus_{i}"):
-                    for k in range(len(st.session_state.data_rows_ot)):
-                        st.session_state.data_rows_ot[k]["nama"] = st.session_state.get(f"ot_nama_{k}", "")
-                        st.session_state.data_rows_ot[k]["nik"] = st.session_state.get(f"ot_nik_{k}", "")
-                        st.session_state.data_rows_ot[k]["section"] = st.session_state.get(f"ot_section_{k}", "")
-                        st.session_state.data_rows_ot[k]["job"] = st.session_state.get(f"ot_job_{k}", "")
-                        st.session_state.data_rows_ot[k]["jemputan"] = st.session_state.get(f"ot_jemputan_{k}", "")
-                        st.session_state.data_rows_ot[k]["nohp"] = st.session_state.get(f"ot_nohp_{k}", "")
-                        st.session_state.data_rows_ot[k]["grup_shift"] = st.session_state.get(f"ot_grup_{k}", "Putih")
-                    
-                    st.session_state.data_rows_ot.append({
-                        "nama": "", "nik": "", "section": "", "job": "", "jemputan": "", "nohp": "", "grup_shift": "Putih"
-                    })
-                    st.rerun()
+    # -----------------------------------------------------------------
+    # 4. TABEL ST.DATA_EDITOR (SANGAT CEPAT & BEBAS BUG CACHING)
+    # -----------------------------------------------------------------
+    edited_df = st.data_editor(
+        st.session_state.df_schedule_shift,
+        column_config={
+            "Nama Lengkap": st.column_config.TextColumn("Nama Lengkap"),
+            "NIK": st.column_config.TextColumn("NIK"),
+            "Section": st.column_config.TextColumn("Section"),
+            "Job Deskripsi": st.column_config.TextColumn("Job Deskripsi"),
+            "Titik Jemputan": st.column_config.TextColumn("Titik Jemputan"),
+            "No HP": st.column_config.TextColumn("No HP"),
+            "Grup Shift": st.column_config.SelectboxColumn("Grup Shift", options=["Putih", "Biru", "NS"], required=True)
+        },
+        num_rows="dynamic",
+        hide_index=False,
+        use_container_width=True,
+        key="editor_schedule_shift_table"
+    )
 
     st.write("---")
     col_submit1, col_submit2 = st.columns(2)
@@ -581,15 +533,15 @@ elif st.session_state.page == 'input_overtime':
         if st.button("Submit Schedule Shift", use_container_width=True, type="primary", key="submit_ot_final"):
             records_saved = 0
             with conn.engine.begin() as connection:
-                for k in range(len(st.session_state.data_rows_ot)):
-                    nm_ot = str(st.session_state.get(f"ot_nama_{k}", st.session_state.data_rows_ot[k]["nama"])).strip()
-                    nik_ot = str(st.session_state.get(f"ot_nik_{k}", st.session_state.data_rows_ot[k]["nik"])).strip()
+                for idx, row_ot in edited_df.iterrows():
+                    nm_ot = str(row_ot.get("Nama Lengkap", "") if pd.notna(row_ot.get("Nama Lengkap")) else "").strip()
                     
                     if nm_ot != "" and nm_ot != "Nama Lengkap":
-                        sec_ot = str(st.session_state.get(f"ot_section_{k}", st.session_state.data_rows_ot[k]["section"])).strip()
-                        job_ot = str(st.session_state.get(f"ot_job_{k}", st.session_state.data_rows_ot[k]["job"])).strip()
-                        jem_ot = str(st.session_state.get(f"ot_jemputan_{k}", st.session_state.data_rows_ot[k]["jemputan"])).strip()
-                        hp_ot = str(st.session_state.get(f"ot_nohp_{k}", st.session_state.data_rows_ot[k]["nohp"])).strip()
+                        nik_ot = str(row_ot.get("NIK", "") if pd.notna(row_ot.get("NIK")) else "").strip()
+                        sec_ot = str(row_ot.get("Section", "") if pd.notna(row_ot.get("Section")) else "").strip()
+                        job_ot = str(row_ot.get("Job Deskripsi", "") if pd.notna(row_ot.get("Job Deskripsi")) else "").strip()
+                        jem_ot = str(row_ot.get("Titik Jemputan", "") if pd.notna(row_ot.get("Titik Jemputan")) else "").strip()
+                        hp_ot = str(row_ot.get("No HP", "") if pd.notna(row_ot.get("No HP")) else "").strip()
 
                         query = text("""
                             INSERT INTO db_shift (user_input, periode, shift_jam, nama, nik, section, job, titik_jemputan, no_hp, shift)
@@ -611,8 +563,7 @@ elif st.session_state.page == 'input_overtime':
 
             if records_saved > 0:
                 st.success(f"✅ Berhasil menyimpan {records_saved} karyawan untuk **Shift Kerja {shift_jam_val}**!")
-                clear_widget_keys()
-                reset_data_ot()
+                st.session_state.df_schedule_shift = pd.DataFrame()
                 st.session_state.page = 'select_menu'
                 st.rerun()
             else:
@@ -620,8 +571,7 @@ elif st.session_state.page == 'input_overtime':
 
     with col_submit2:
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_ot_final"):
-            clear_widget_keys()
-            reset_data_ot()
+            st.session_state.df_schedule_shift = pd.DataFrame()
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
