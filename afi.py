@@ -392,7 +392,7 @@ elif st.session_state.page == 'input_absensi':
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (MENGGUNAKAN ST.DATA_EDITOR - STABIL & BEBAS BUG)
+# 4. HALAMAN SCHEDULE SHIFT (PERBAIKAN INDENTASI & DEFAULT KOSONG)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -428,7 +428,7 @@ elif st.session_state.page == 'input_overtime':
     st.write("---")
     
     # -----------------------------------------------------------------
-    # 2. FUNGSI AMBIL DATA DARI DB_KARYAWAN DENGAN PANDAS (BEBAS OVERWRITE)
+    # 2. FUNGSI AMBIL DATA DARI DB_KARYAWAN
     # -----------------------------------------------------------------
     def load_karyawan_df(target_filter=None):
         try:
@@ -459,7 +459,6 @@ elif st.session_state.page == 'input_overtime':
                     df_res = df_karyawan_fetched.copy()
 
                 if len(df_res) > 0:
-                    # Rename kolom agar rapi di tabel editor
                     df_res = df_res.rename(columns={
                         "nama": "Nama Lengkap",
                         "nik": "NIK",
@@ -501,15 +500,14 @@ elif st.session_state.page == 'input_overtime':
     st.markdown("<div style='background-color:#e9ecef; border:1px solid #ccc; text-align:center; padding:6px; font-weight:bold; font-size:15px; border-radius:4px;'>Database Quality Member</div>", unsafe_allow_html=True)
     st.write("")
 
-    # Inisialisasi DataFrame default jika belum ada
-    # KODE BARU (TABEL BENAR-BENAR KOSONG DEFAULT):
- if "df_schedule_shift" not in st.session_state:
-    st.session_state.df_schedule_shift = pd.DataFrame(columns=[
-        "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
-    ])
+    # 📌 INITIALIZATION: TABEL BENAR-BENAR KOSONG SECARA DEFAULT
+    if "df_schedule_shift" not in st.session_state:
+        st.session_state.df_schedule_shift = pd.DataFrame(columns=[
+            "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
+        ])
 
     # -----------------------------------------------------------------
-    # 4. TABEL ST.DATA_EDITOR (SANGAT CEPAT & BEBAS BUG CACHING)
+    # 4. TABEL ST.DATA_EDITOR DENGAN STRUKTUR DEFAULT KOSONG
     # -----------------------------------------------------------------
     edited_df = st.data_editor(
         st.session_state.df_schedule_shift,
@@ -564,21 +562,21 @@ elif st.session_state.page == 'input_overtime':
 
             if records_saved > 0:
                 st.success(f"✅ Berhasil menyimpan {records_saved} karyawan untuk **Shift Kerja {shift_jam_val}**!")
-                st.session_state.df_schedule_shift = pd.DataFrame()
+                st.session_state.df_schedule_shift = pd.DataFrame(columns=[
+                    "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
+                ])
                 st.session_state.page = 'select_menu'
                 st.rerun()
             else:
-                st.warning("⚠️ Silakan isi minimal satu data karyawan sebelum Submit.")
+                st.warning("⚠️ Silakan isi minimal satu data karyawan atau tekan tombol Ambil DB sebelum Submit.")
 
-  with col_submit2:
-    if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_ot_final"):
-        # 📌 LETAKKAN DI SINI (RESET SAAT TOMBOL KEMBALI DIKLIK):
-        st.session_state.df_schedule_shift = pd.DataFrame(columns=[
-            "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
-        ])
-        
-        st.session_state.page = 'select_menu'
-        st.rerun()
+    with col_submit2:
+        if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_ot_final"):
+            st.session_state.df_schedule_shift = pd.DataFrame(columns=[
+                "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
+            ])
+            st.session_state.page = 'select_menu'
+            st.rerun()
 # =====================================================================
 # 5. HALAMAN INPUT DAILY REPORT (100% SERAP DATA DARI DB_SHIFT)
 # =====================================================================
