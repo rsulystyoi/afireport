@@ -1053,7 +1053,7 @@ elif st.session_state.page == 'rekap_data':
                 if "Hapus" not in df_abs.columns:
                     df_abs.insert(0, "Hapus", False)
 
-                desired_cols = ["Hapus", "id", "waktu_submit", "user_input", "tanggal", "shift", "leader", "total_member", "kategori", "nama_karyawan"]
+                desired_cols = ["Hapus", "id", "waktu_submit", "user_input", "tanggal", "shift", "total_member", "kategori", "nama_karyawan"]
                 existing_cols = [col for col in desired_cols if col in df_abs.columns]
                 df_abs = df_abs[existing_cols]
 
@@ -1089,7 +1089,7 @@ elif st.session_state.page == 'rekap_data':
                                 query = text("""
                                     UPDATE db_absensi 
                                     SET user_input = :user_input, tanggal = :tanggal, shift = :shift, 
-                                        leader = :leader, total_member = :total_member, 
+                                        total_member = :total_member, 
                                         kategori = :kategori, nama_karyawan = :nama_karyawan
                                     WHERE id = :id;
                                 """)
