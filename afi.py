@@ -484,23 +484,23 @@ elif st.session_state.page == 'input_overtime':
     # -----------------------------------------------------------------
     # 3. BARIS 4 TOMBOL AMBIL DATA (PUTIH, BIRU, NS, SEMUA)
     # -----------------------------------------------------------------
-    st.write("💡 **Ambil Data Dari Database Karyawan:**")
+    st.write("Ambil Data Dari Database Karyawan")
     col_b1, col_b2, col_b3, col_b4 = st.columns(4)
     
     with col_b1:
-        if st.button("🔄 Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
+        if st.button("Ambil DB (Shift Putih)", use_container_width=True, key="btn_fetch_putih"):
             load_karyawan_df("putih")
             
     with col_b2:
-        if st.button("🔄 Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
+        if st.button("Ambil DB (Shift Biru)", use_container_width=True, key="btn_fetch_biru"):
             load_karyawan_df("biru")
 
     with col_b3:
-        if st.button("🔄 Ambil DB (Shift NS)", use_container_width=True, key="btn_fetch_ns"):
+        if st.button("Ambil DB (Shift NS)", use_container_width=True, key="btn_fetch_ns"):
             load_karyawan_df("ns")
 
     with col_b4:
-        if st.button("👥 Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
+        if st.button("Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
             load_karyawan_df(None)
 
     # -----------------------------------------------------------------
