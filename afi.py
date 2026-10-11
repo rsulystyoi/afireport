@@ -183,7 +183,6 @@ if st.session_state.page == 'login':
 elif st.session_state.page == 'select_menu':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📋 Select Page")
-    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}**")
     st.write("---")
      
     col1, col2, col3 = st.columns(3)
@@ -232,7 +231,6 @@ elif st.session_state.page == 'select_menu':
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📝 Attendance Page")
-    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
     
     # Bersihkan cache Streamlit agar data db_shift terbaru selalu terbaca live
@@ -401,14 +399,12 @@ elif st.session_state.page == 'input_absensi':
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
             st.rerun()
-
 # =====================================================================
-# 4. HALAMAN SCHEDULE SHIFT (PERBAIKAN INDENTASI & DEFAULT KOSONG)
+# 4. HALAMAN SCHEDULE SHIFT (FIX ERROR INITIALIZATION & 4 TOMBOL FETCH)
 # =====================================================================
 elif st.session_state.page == 'input_overtime':    
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📝 Schedule Shift")
-    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("")
 
     # AUTO MIGRATION: Pastikan kolom shift_jam ada di db_shift
@@ -438,8 +434,15 @@ elif st.session_state.page == 'input_overtime':
 
     st.write("---")
     
-  # -----------------------------------------------------------------
-    # 2. FUNGSI AMBIL DATA DARI DB_KARYAWAN (4 PILIHAN FILTER)
+    # KANONIKAL KOLOM UNTUK SCHEDULE SHIFT
+    COLS_SCHEDULE = ["Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"]
+
+    # 📌 INISIALISASI WAJIB: PASTIKAN DATAFRAME SELALU PUNYA KOLOM LENGKAP
+    if "df_schedule_shift" not in st.session_state or not isinstance(st.session_state.df_schedule_shift, pd.DataFrame) or len(st.session_state.df_schedule_shift.columns) == 0:
+        st.session_state.df_schedule_shift = pd.DataFrame(columns=COLS_SCHEDULE)
+
+    # -----------------------------------------------------------------
+    # 2. FUNGSI AMBIL DATA DARI DB_KARYAWAN (4 FILTER: PUTIH, BIRU, NS, SEMUA)
     # -----------------------------------------------------------------
     def load_karyawan_df(target_filter=None):
         try:
@@ -472,7 +475,6 @@ elif st.session_state.page == 'input_overtime':
                     df_res = df_karyawan_fetched.copy()
 
                 if len(df_res) > 0:
-                    # Rename kolom agar rapi di tabel editor
                     df_res = df_res.rename(columns={
                         "nama": "Nama Lengkap",
                         "nik": "NIK",
@@ -482,7 +484,7 @@ elif st.session_state.page == 'input_overtime':
                         "no_hp": "No HP"
                     })
                     
-                    st.session_state.df_schedule_shift = df_res[["Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"]].reset_index(drop=True)
+                    st.session_state.df_schedule_shift = df_res[COLS_SCHEDULE].reset_index(drop=True)
                     st.success(f"✅ Berhasil memuat {len(df_res)} data karyawan!")
                     st.rerun()
                 else:
@@ -493,9 +495,9 @@ elif st.session_state.page == 'input_overtime':
             st.error(f"Gagal memuat data: {e_f}")
 
     # -----------------------------------------------------------------
-    # 3. BARIS 4 TOMBOL AMBIL DATA (PUTIH, BIRU, NS, SEMUA)
+    # 3. BARIS 4 TOMBOL AMBIL DATA
     # -----------------------------------------------------------------
-    st.write("Ambil Data Dari Database Karyawan")
+    st.write("💡 **Ambil Data Dari Database Karyawan:**")
     col_b1, col_b2, col_b3, col_b4 = st.columns(4)
     
     with col_b1:
@@ -514,8 +516,12 @@ elif st.session_state.page == 'input_overtime':
         if st.button("Ambil Semua DB Karyawan", use_container_width=True, key="btn_fetch_all"):
             load_karyawan_df(None)
 
+    st.write("")
+    st.markdown("<div style='background-color:#e9ecef; border:1px solid #ccc; text-align:center; padding:6px; font-weight:bold; font-size:15px; border-radius:4px;'>Database Quality Member</div>", unsafe_allow_html=True)
+    st.write("")
+
     # -----------------------------------------------------------------
-    # 4. TABEL ST.DATA_EDITOR DENGAN STRUKTUR DEFAULT KOSONG
+    # 4. TABEL ST.DATA_EDITOR BEBAS ERROR
     # -----------------------------------------------------------------
     edited_df = st.data_editor(
         st.session_state.df_schedule_shift,
@@ -570,9 +576,7 @@ elif st.session_state.page == 'input_overtime':
 
             if records_saved > 0:
                 st.success(f"✅ Berhasil menyimpan {records_saved} karyawan untuk **Shift Kerja {shift_jam_val}**!")
-                st.session_state.df_schedule_shift = pd.DataFrame(columns=[
-                    "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
-                ])
+                st.session_state.df_schedule_shift = pd.DataFrame(columns=COLS_SCHEDULE)
                 st.session_state.page = 'select_menu'
                 st.rerun()
             else:
@@ -580,18 +584,16 @@ elif st.session_state.page == 'input_overtime':
 
     with col_submit2:
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_ot_final"):
-            st.session_state.df_schedule_shift = pd.DataFrame(columns=[
-                "Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Titik Jemputan", "No HP", "Grup Shift"
-            ])
+            st.session_state.df_schedule_shift = pd.DataFrame(columns=COLS_SCHEDULE)
             st.session_state.page = 'select_menu'
             st.rerun()
+
 # =====================================================================
 # 5. HALAMAN INPUT DAILY REPORT (100% SERAP DATA DARI DB_SHIFT)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📄 Daily Report Page")
-    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
 
     # Paksa bersihkan cache database Streamlit agar data terbaru langsung terbaca
