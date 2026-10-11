@@ -1097,7 +1097,6 @@ elif st.session_state.page == 'rekap_data':
                                     "user_input": str(row.get("user_input", "") or ""),
                                     "tanggal": str(row.get("tanggal", "") or ""),
                                     "shift": str(row.get("shift", "") or ""),
-                                    "leader": str(row.get("leader", "") or ""),
                                     "total_member": int(row.get("total_member", 0) if pd.notnull(row.get("total_member")) else 0),
                                     "kategori": str(row.get("kategori", "") or ""),
                                     "nama_karyawan": str(row.get("nama_karyawan", "") or ""),
