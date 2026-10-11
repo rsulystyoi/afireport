@@ -226,9 +226,8 @@ elif st.session_state.page == 'select_menu':
             st.session_state.page = 'login'
             st.success("Berhasil Logout!")
             st.rerun()
-
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (TOTAL MEMBER KESELURUHAN & HADIR PER SHIFT)
+# 3. HALAMAN INPUT ABSENSI (DATA DARI DB_SHIFT: PUTIH, BIRU, NS, SEMUA)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -254,37 +253,47 @@ elif st.session_state.page == 'input_absensi':
     else:
         periode_abs_val = f"{str_mulai_abs} s/d {str_selesai_abs}"
 
-    # 2. INPUT SHIFT (PUTIH / BIRU) DAN LEADER
+    # 2. INPUT SHIFT (PUTIH, BIRU, NS, SEMUA KARYAWAN) DAN LEADER
     col_a, col_b = st.columns(2)
     with col_a:
-        shift = st.selectbox("Shift :", ["Putih", "Biru"], key="abs_shift_select")
+        shift_options = ["Putih", "Biru", "NS", "Semua Karyawan"]
+        shift = st.selectbox("Shift :", shift_options, key="abs_shift_select")
     with col_b:
         leader = st.text_input("Leader :", key="abs_leader_input")
 
     shift_clean = str(shift).strip().lower()
 
-    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT
-    total_member_global = 0  # Untuk Kotak Abu-abu (Semua Member)
-    total_member_shift = 0   # Untuk Perhitungan Total Hadir Per Shift
+    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT BERDASARKAN SHIFT TERPILIH
+    total_member_shift = 0
 
     try:
-        df_all_shift = conn.query("SELECT id, nama, shift FROM db_shift;", ttl="0s")
+        df_all_shift = conn.query("SELECT id, nama, shift, shift_jam FROM db_shift;", ttl="0s")
         if len(df_all_shift) > 0:
-            # Total Member Keseluruhan (Tanpa Filter Shift)
-            total_member_global = len(df_all_shift)
+            df_all_shift['shift_clean'] = df_all_shift['shift'].fillna("").astype(str).str.strip().str.lower()
+            if 'shift_jam' in df_all_shift.columns:
+                df_all_shift['shift_jam_clean'] = df_all_shift['shift_jam'].fillna("").astype(str).str.strip().str.lower()
+            else:
+                df_all_shift['shift_jam_clean'] = ""
 
-            if 'shift' in df_all_shift.columns:
-                df_all_shift['shift_clean'] = df_all_shift['shift'].astype(str).str.strip().str.lower()
-                
-                # Filter khusus untuk perhitungan Total Hadir per Shift
+            def filter_shift_fn(row):
+                s1 = row['shift_clean']
+                s2 = row['shift_jam_clean']
+                combined = f"{s1} {s2}"
+
                 if shift_clean == "putih":
-                    df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['putih', 'shift 1', '1'])]
-                else:
-                    df_filtered = df_all_shift[df_all_shift['shift_clean'].isin(['biru', 'shift 2', '2'])]
-                    
-                total_member_shift = len(df_filtered)
+                    return any(k in combined for k in ['putih', 'shift 1', 's1']) or s1 == '1'
+                elif shift_clean == "biru":
+                    return any(k in combined for k in ['biru', 'shift 2', 's2']) or s1 == '2'
+                elif shift_clean == "ns":
+                    is_putih = any(k in combined for k in ['putih', 'shift 1', 's1']) or s1 == '1'
+                    is_biru = any(k in combined for k in ['biru', 'shift 2', 's2']) or s1 == '2'
+                    return (not is_putih and not is_biru) or 'ns' in combined
+                else:  # Semua Karyawan
+                    return True
+
+            df_filtered = df_all_shift[df_all_shift.apply(filter_shift_fn, axis=1)]
+            total_member_shift = len(df_filtered)
     except Exception as e_fetch:
-        total_member_global = 0
         total_member_shift = 0
 
     # 4. MENGHITUNG TOTAL TIDAK HADIR DAN TOTAL HADIR
@@ -311,11 +320,11 @@ elif st.session_state.page == 'input_absensi':
     col_m1, col_m2, col_m3 = st.columns(3)
     
     with col_m1:
-        # KOTAK ABU-ABU: Total Member Keseluruhan (Global)
+        # KOTAK ABU-ABU: Total Member Berdasarkan Shift Terpilih
         st.markdown(f"""
             <div style='background-color:#e2e3e5; border:1px solid #d6d8db; padding:12px; border-radius:6px; text-align:center; color:#383d41;'>
-                <b>Total Member</b><br>
-                <span style='font-size:22px; font-weight:bold;'>{total_member_global} orang</span>
+                <b>Total Member ({shift})</b><br>
+                <span style='font-size:22px; font-weight:bold;'>{total_member_shift} orang</span>
             </div>
         """, unsafe_allow_html=True)
 
@@ -378,7 +387,7 @@ elif st.session_state.page == 'input_absensi':
                                 "tanggal": str(periode_abs_val),
                                 "shift": shift,
                                 "leader": leader,
-                                "total_member": total_member_global,
+                                "total_member": total_member_shift,
                                 "kategori": kat,
                                 "nama_karyawan": nm
                             })
@@ -391,6 +400,8 @@ elif st.session_state.page == 'input_absensi':
     with col_submit2:
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
             st.session_state.page = 'select_menu'
+            st.rerun()
+
 # =====================================================================
 # 4. HALAMAN SCHEDULE SHIFT (PERBAIKAN INDENTASI & DEFAULT KOSONG)
 # =====================================================================
