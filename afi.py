@@ -226,24 +226,23 @@ elif st.session_state.page == 'select_menu':
             st.success("Berhasil Logout!")
             st.rerun()
 # =====================================================================
-# 3. HALAMAN INPUT ABSENSI (DATA DARI DB_SHIFT: PUTIH, BIRU, NS, SEMUA)
+# 3. HALAMAN INPUT ABSENSI (TABEL DYNAMIC DENGAN DROPDOWN KONDISI)
 # =====================================================================
 elif st.session_state.page == 'input_absensi':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📝 Attendance Page")
+    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
     
-    # Bersihkan cache Streamlit agar data db_shift terbaru selalu terbaca live
     st.cache_data.clear()
 
-    # 1. PERIODE 2 KOLOM TANGGAL TERPISAH
+    # 1. PERIODE TANGGAL
     col_p1, col_p2 = st.columns(2)
     with col_p1:
         tgl_mulai_abs = st.date_input("Dari Tanggal :", value=datetime.now(), key="abs_tgl_mulai")
     with col_p2:
         tgl_selesai_abs = st.date_input("Sampai Tanggal :", value=datetime.now(), key="abs_tgl_selesai")
     
-    # Format teks periode
     str_mulai_abs = tgl_mulai_abs.strftime("%d/%m/%Y")
     str_selesai_abs = tgl_selesai_abs.strftime("%d/%m/%Y")
     if str_mulai_abs == str_selesai_abs:
@@ -251,21 +250,19 @@ elif st.session_state.page == 'input_absensi':
     else:
         periode_abs_val = f"{str_mulai_abs} s/d {str_selesai_abs}"
 
-    # 2. INPUT SHIFT (PUTIH, BIRU, NS, SEMUA KARYAWAN) DAN LEADER
-    col_a, col_b = st.columns(2)
-    with col_a:
-        shift_options = ["Putih", "Biru", "NS", "Semua Karyawan"]
-        shift = st.selectbox("Shift :", shift_options, key="abs_shift_select")
-    with col_b:
-        leader = st.text_input("Leader :", key="abs_leader_input")
-
+    # 2. PILIHAN SHIFT (LEADER SUDAH DIHILANGKAN)
+    shift_options = ["Putih", "Biru", "NS", "Semua Karyawan"]
+    shift = st.selectbox("Shift :", shift_options, key="abs_shift_select")
     shift_clean = str(shift).strip().lower()
 
-    # 3. MENGAMBIL TOTAL MEMBER DARI DB_SHIFT BERDASARKAN SHIFT TERPILIH
-    total_member_shift = 0
+    # 3. TARIK DATA DARI DB_SHIFT SESUAI SHIFT TERPILIH
+    COLS_ABSENSI = ["Nama Lengkap", "NIK", "Section", "Job Deskripsi", "Grup Shift", "Kondisi"]
+    list_opts_kondisi = ["Hadir", "Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
 
+    df_member_abs = pd.DataFrame(columns=COLS_ABSENSI)
+    
     try:
-        df_all_shift = conn.query("SELECT id, nama, shift, shift_jam FROM db_shift;", ttl="0s")
+        df_all_shift = conn.query("SELECT nama, nik, section, job, shift, shift_jam FROM db_shift ORDER BY id ASC;", ttl="0s")
         if len(df_all_shift) > 0:
             df_all_shift['shift_clean'] = df_all_shift['shift'].fillna("").astype(str).str.strip().str.lower()
             if 'shift_jam' in df_all_shift.columns:
@@ -273,7 +270,7 @@ elif st.session_state.page == 'input_absensi':
             else:
                 df_all_shift['shift_jam_clean'] = ""
 
-            def filter_shift_fn(row):
+            def filter_shift_abs(row):
                 s1 = row['shift_clean']
                 s2 = row['shift_jam_clean']
                 combined = f"{s1} {s2}"
@@ -289,36 +286,57 @@ elif st.session_state.page == 'input_absensi':
                 else:  # Semua Karyawan
                     return True
 
-            df_filtered = df_all_shift[df_all_shift.apply(filter_shift_fn, axis=1)]
-            total_member_shift = len(df_filtered)
+            df_filtered = df_all_shift[df_all_shift.apply(filter_shift_abs, axis=1)].copy()
+            
+            if len(df_filtered) > 0:
+                df_filtered = df_filtered.rename(columns={
+                    "nama": "Nama Lengkap",
+                    "nik": "NIK",
+                    "section": "Section",
+                    "job": "Job Deskripsi",
+                    "shift": "Grup Shift"
+                })
+                df_filtered["Kondisi"] = "Hadir"  # Default status kondisi
+                df_member_abs = df_filtered[COLS_ABSENSI].reset_index(drop=True)
     except Exception as e_fetch:
-        total_member_shift = 0
+        df_member_abs = pd.DataFrame(columns=COLS_ABSENSI)
 
-    # 4. MENGHITUNG TOTAL TIDAK HADIR DAN TOTAL HADIR
-    kategori_absensi = ["Sakit", "Cuti Terencana", "Cuti Dadakan", "Cuti Khusus", "Izin", "Terlambat", "OSD"]
-    
-    if 'jumlah_input_absensi' not in st.session_state:
-        st.session_state.jumlah_input_absensi = {kat: 1 for kat in kategori_absensi}
-
-    total_tidak_hadir = 0
-    for kat in kategori_absensi:
-        for i in range(st.session_state.jumlah_input_absensi[kat]):
-            nama_val = st.session_state.get(f"input_{kat}_{i}", "")
-            if nama_val.strip() != "":
-                total_tidak_hadir += 1
-
-    # Total Hadir dihitung dari Member Shift Terpilih - Total Tidak Hadir
-    total_hadir = total_member_shift - total_tidak_hadir
-    if total_hadir < 0:
-        total_hadir = 0
+    # State manajemen untuk tabel absensi
+    if "df_attendance_editor" not in st.session_state or st.session_state.get("last_abs_shift") != shift:
+        st.session_state.df_attendance_editor = df_member_abs
+        st.session_state.last_abs_shift = shift
 
     st.write("---")
 
+    # 4. TABEL ST.DATA_EDITOR KARYAWAN & KONDISI
+    st.subheader("Detail Ketidakhadiran / Kondisi Member:")
+    
+    edited_abs_df = st.data_editor(
+        st.session_state.df_attendance_editor,
+        column_config={
+            "Nama Lengkap": st.column_config.TextColumn("Nama Lengkap", disabled=False),
+            "NIK": st.column_config.TextColumn("NIK", disabled=False),
+            "Section": st.column_config.TextColumn("Section", disabled=False),
+            "Job Deskripsi": st.column_config.TextColumn("Job Deskripsi", disabled=False),
+            "Grup Shift": st.column_config.TextColumn("Grup Shift", disabled=False),
+            "Kondisi": st.column_config.SelectboxColumn("Kondisi", options=list_opts_kondisi, required=True)
+        },
+        num_rows="dynamic",
+        hide_index=False,
+        use_container_width=True,
+        key="editor_attendance_table"
+    )
+
+    # 5. KALKULASI OTOMATIS LIVE SESUAI EDITAN TABEL
+    total_member_shift = len(edited_abs_df)
+    total_hadir = len(edited_abs_df[edited_abs_df["Kondisi"] == "Hadir"])
+    total_tidak_hadir = total_member_shift - total_hadir
+
     # 📌 DASHBOARD 3 KOTAK RINGKASAN
+    st.write("")
     col_m1, col_m2, col_m3 = st.columns(3)
     
     with col_m1:
-        # KOTAK ABU-ABU: Total Member Berdasarkan Shift Terpilih
         st.markdown(f"""
             <div style='background-color:#e2e3e5; border:1px solid #d6d8db; padding:12px; border-radius:6px; text-align:center; color:#383d41;'>
                 <b>Total Member ({shift})</b><br>
@@ -327,7 +345,6 @@ elif st.session_state.page == 'input_absensi':
         """, unsafe_allow_html=True)
 
     with col_m2:
-        # KOTAK MERAH: Total Tidak Hadir
         st.markdown(f"""
             <div style='background-color:#f8d7da; border:1px solid #f5c6cb; padding:12px; border-radius:6px; text-align:center; color:#721c24;'>
                 <b>Total Tidak Hadir</b><br>
@@ -336,7 +353,6 @@ elif st.session_state.page == 'input_absensi':
         """, unsafe_allow_html=True)
 
     with col_m3:
-        # KOTAK HIJAU: Total Hadir Berdasarkan Shift Terpilih
         st.markdown(f"""
             <div style='background-color:#d4edda; border:1px solid #c3e6cb; padding:12px; border-radius:6px; text-align:center; color:#155724;'>
                 <b>Total Hadir ({shift})</b><br>
@@ -345,58 +361,41 @@ elif st.session_state.page == 'input_absensi':
         """, unsafe_allow_html=True)
 
     st.write("---")
-    st.subheader("Detail Ketidakhadiran / Kondisi:")
-
-    # 5. RENDER INPUT NAMA BERDASARKAN KATEGORI
-    data_nama_terinput = {}
-
-    for kat in kategori_absensi:
-        st.markdown(f"**{kat}**")
-        list_nama_kat = []
-        
-        for i in range(st.session_state.jumlah_input_absensi[kat]):
-            col_input, col_tombol = st.columns([5, 1])
-            with col_input:
-                nama = st.text_input(label=f"Nama {kat} {i}", value="", key=f"input_{kat}_{i}", label_visibility="collapsed")
-                list_nama_kat.append(nama)
-            with col_tombol:
-                if i == st.session_state.jumlah_input_absensi[kat] - 1:
-                    if st.button("➕", key=f"btn_{kat}_{i}"):
-                        st.session_state.jumlah_input_absensi[kat] += 1
-                        st.rerun()
-                        
-        data_nama_terinput[kat] = list_nama_kat
-        st.markdown("<div style='margin-bottom: 10px;'></div>", unsafe_allow_html=True)
-
-    st.write("---")
     col_submit1, col_submit2 = st.columns(2)
     with col_submit1:
         if st.button("Submit Attendance", use_container_width=True, type="primary", key="btn_submit_abs"):
+            records_saved = 0
             with conn.engine.begin() as connection:
-                for kat, list_nama in data_nama_terinput.items():
-                    for nm in list_nama:
-                        if nm.strip() != "":
-                            query = text("""
-                                INSERT INTO db_absensi (user_input, tanggal, shift, leader, total_member, kategori, nama_karyawan)
-                                VALUES (:user_input, :tanggal, :shift, :leader, :total_member, :kategori, :nama_karyawan)
-                            """)
-                            connection.execute(query, {
-                                "user_input": st.session_state.user_info.get("nama", ""),
-                                "tanggal": str(periode_abs_val),
-                                "shift": shift,
-                                "leader": leader,
-                                "total_member": total_member_shift,
-                                "kategori": kat,
-                                "nama_karyawan": nm
-                            })
+                for idx, row_abs in edited_abs_df.iterrows():
+                    nm_karyawan = str(row_abs.get("Nama Lengkap", "") if pd.notna(row_abs.get("Nama Lengkap")) else "").strip()
+                    kondisi_val = str(row_abs.get("Kondisi", "Hadir")).strip()
+                    
+                    if nm_karyawan != "":
+                        query = text("""
+                            INSERT INTO db_absensi (user_input, tanggal, shift, total_member, kategori, nama_karyawan)
+                            VALUES (:user_input, :tanggal, :shift, :total_member, :kategori, :nama_karyawan)
+                        """)
+                        connection.execute(query, {
+                            "user_input": str(st.session_state.user_info.get("nama", "")),
+                            "tanggal": str(periode_abs_val),
+                            "shift": str(shift),
+                            "total_member": total_member_shift,
+                            "kategori": kondisi_val,
+                            "nama_karyawan": nm_karyawan
+                        })
+                        records_saved += 1
 
-            st.success("✅ Data Absensi Berhasil Disimpan ke PostgreSQL!")
-            st.session_state.jumlah_input_absensi = {kat: 1 for kat in kategori_absensi}
-            st.session_state.page = 'select_menu'
-            st.rerun()
+            if records_saved > 0:
+                st.success(f"✅ Data Absensi ({shift}) Berhasil Disimpan ke PostgreSQL!")
+                st.session_state.df_attendance_editor = pd.DataFrame(columns=COLS_ABSENSI)
+                st.session_state.page = 'select_menu'
+                st.rerun()
+            else:
+                st.warning("⚠️ Tidak ada data karyawan untuk disimpan.")
 
     with col_submit2:
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_abs"):
+            st.session_state.df_attendance_editor = pd.DataFrame(columns=COLS_ABSENSI)
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
