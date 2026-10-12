@@ -587,7 +587,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (DATA KARYAWAN HADIR DARI DB_ABSENSI)
+# 5. HALAMAN INPUT DAILY REPORT (SUPPORT MULTI-JOB PER KARYAWAN)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -610,7 +610,6 @@ elif st.session_state.page == 'input_daily_report':
     # 2. QUERY NAMA KARYAWAN HADIR DARI DB_ABSENSI
     list_nama_hadir = []
     try:
-        # Ambil data absensi yang berstatus 'Hadir'
         df_abs_fetched = conn.query("SELECT DISTINCT nama_karyawan, shift FROM db_absensi WHERE LOWER(kategori) = 'hadir' AND nama_karyawan IS NOT NULL AND nama_karyawan != '' ORDER BY nama_karyawan ASC;", ttl="0s")
         
         if len(df_abs_fetched) > 0:
@@ -626,7 +625,7 @@ elif st.session_state.page == 'input_daily_report':
                     is_p = any(k in s1 for k in ['putih', 'shift 1', 's1']) or s1 == '1'
                     is_b = any(k in s1 for k in ['biru', 'shift 2', 's2']) or s1 == '2'
                     return (not is_p and not is_b) or 'ns' in s1
-                else:  # Semua Karyawan
+                else:
                     return True
 
             df_filtered_dr = df_abs_fetched[df_abs_fetched.apply(filter_shift_dr, axis=1)]
@@ -678,7 +677,7 @@ elif st.session_state.page == 'input_daily_report':
 
     if len(st.session_state.df_daily_report_editor) > 0:
         st.subheader("📋 Input Pekerjaan Harian Anggota Hadir")
-        st.caption("Lengkapi detail pekerjaan anggota di bawah ini. Anda juga dapat menambahkan baris pekerjaan baru.")
+        st.caption("💡 **Tips Multi-Job:** Jika karyawan mengerjakan lebih dari 1 job, klik tombol **(+) Add Row** di bagian bawah tabel, pilih nama karyawan yang sama, lalu pilih Job Kategori yang kedua.")
 
         # Recalculate Live Total Box
         df_curr = st.session_state.df_daily_report_editor.copy()
@@ -687,7 +686,8 @@ elif st.session_state.page == 'input_daily_report':
         edited_dr_df = st.data_editor(
             df_curr,
             column_config={
-                "Nama Karyawan": st.column_config.TextColumn("Nama Karyawan", disabled=False),
+                # 📌 Nama Karyawan dijadikan SelectboxColumn dari daftar karyawan hadir
+                "Nama Karyawan": st.column_config.SelectboxColumn("Nama Karyawan", options=list_nama_hadir, required=True),
                 "Job Kategori": st.column_config.SelectboxColumn("Job Kategori", options=list_job_options, required=True),
                 "Jam Reg": st.column_config.NumberColumn("Jam Reg", min_value=0.0, step=0.5, format="%.1f"),
                 "Jam OT": st.column_config.NumberColumn("Jam OT", min_value=0.0, step=0.5, format="%.1f"),
@@ -719,7 +719,6 @@ elif st.session_state.page == 'input_daily_report':
                     tot_b = b_reg + b_ot
                     ket_txt = str(row_dr.get("Keterangan", "") if pd.notna(row_dr.get("Keterangan")) else "").strip()
 
-                    # Simpan baris yang diisi nama & job valid
                     if nm_karyawan != "" and job_val != "- Pilih Job -":
                         records_to_insert.append({
                             "user_input": str(st.session_state.user_info.get("nama", "")),
@@ -752,7 +751,7 @@ elif st.session_state.page == 'input_daily_report':
                         for item in records_to_insert:
                             connection.execute(query, item)
 
-                    st.success(f"✅ Berhasil menyimpan {len(records_to_insert)} baris Daily Report!")
+                    st.success(f"✅ Berhasil menyimpan {len(records_to_insert)} baris pekerjaan Daily Report!")
                     st.session_state.df_daily_report_editor = pd.DataFrame(columns=COLS_DAILY_REPORT)
                     st.session_state.page = 'select_menu'
                     st.rerun()
@@ -771,7 +770,6 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.df_daily_report_editor = pd.DataFrame(columns=COLS_DAILY_REPORT)
             st.session_state.page = 'select_menu'
             st.rerun()
-
 # =====================================================================
 # 6. HALAMAN DATABASE KARYAWAN (EXPORT & IMPORT KIRI, KEMBALI KANAN)
 # =====================================================================
