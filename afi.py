@@ -587,7 +587,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (FIX FILTER STRICT SHIFT NS & LIVE TOTAL)
+# 5. HALAMAN INPUT DAILY REPORT (LIVE TOTAL BOX & STRICT SHIFT FILTER)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -622,7 +622,6 @@ elif st.session_state.page == 'input_daily_report':
                 elif shift_dr_clean == "biru":
                     return any(k in s1 for k in ['biru', 'shift 2', 's2']) or s1 == '2'
                 elif shift_dr_clean == "ns":
-                    # KETAT: Hanya ambil yang benar-benar mengandung kata 'ns' atau 'non-shift'
                     return any(k in s1 for k in ['ns', 'non-shift', 'non shift'])
                 else:  # Semua Karyawan
                     return True
@@ -653,7 +652,7 @@ elif st.session_state.page == 'input_daily_report':
         "Sortir 100%", "Leader", "Others"
     ]
 
-    # INISIALISASI DATAFRAME EDITOR
+    # 3. INISIALISASI DATAFRAME EDITOR
     if "df_daily_report_editor" not in st.session_state or st.session_state.get("dr_last_shift_view") != shift_dr:
         if len(list_nama_hadir) > 0:
             init_data = []
@@ -678,8 +677,17 @@ elif st.session_state.page == 'input_daily_report':
         st.subheader("📋 Input Pekerjaan Harian Anggota Hadir")
         st.caption("💡 **Tips Multi-Job:** Jika karyawan mengerjakan lebih dari 1 job, klik tombol **(+) Add Row** di bagian bawah tabel, pilih nama karyawan yang sama, lalu pilih Job Kategori yang kedua.")
 
+        # 📌 A. KALKULASI INTERAKTIF TOTAL BOX DARI DATAFRAME SESSION STATE
+        df_display = st.session_state.df_daily_report_editor.copy()
+        
+        # Penjumlahan dinamis Box Reg + Box OT
+        b_reg_series = pd.to_numeric(df_display["Box Reg"], errors='coerce').fillna(0).astype(int)
+        b_ot_series = pd.to_numeric(df_display["Box OT"], errors='coerce').fillna(0).astype(int)
+        df_display["Total Box"] = b_reg_series + b_ot_series
+
+        # 📌 B. RENDER ST.DATA_EDITOR DENGAN NILAI TOTAL BOX TERHITUNG
         edited_dr_df = st.data_editor(
-            st.session_state.df_daily_report_editor,
+            df_display,
             column_config={
                 "Nama Karyawan": st.column_config.SelectboxColumn("Nama Karyawan", options=list_nama_hadir, required=True),
                 "Job Kategori": st.column_config.SelectboxColumn("Job Kategori", options=list_job_options, required=True),
@@ -687,7 +695,7 @@ elif st.session_state.page == 'input_daily_report':
                 "Jam OT": st.column_config.NumberColumn("Jam OT", min_value=0.0, step=0.5, format="%.1f"),
                 "Box Reg": st.column_config.NumberColumn("Box Reg", min_value=0, step=1),
                 "Box OT": st.column_config.NumberColumn("Box OT", min_value=0, step=1),
-                "Total Box": st.column_config.NumberColumn("Total Box", disabled=True),
+                "Total Box": st.column_config.NumberColumn("Total Box", disabled=True),  # Kolom dikunci karena hasil penjumlahan
                 "Keterangan": st.column_config.TextColumn("Keterangan Catatan")
             },
             num_rows="dynamic",
@@ -695,6 +703,12 @@ elif st.session_state.page == 'input_daily_report':
             use_container_width=True,
             key="editor_daily_report_table"
         )
+
+        # 📌 C. SIMPAN EDITED DATAFRAME DAN RE-CALCULATE KE SESSION STATE
+        edited_dr_df["Box Reg"] = pd.to_numeric(edited_dr_df["Box Reg"], errors='coerce').fillna(0).astype(int)
+        edited_dr_df["Box OT"] = pd.to_numeric(edited_dr_df["Box OT"], errors='coerce').fillna(0).astype(int)
+        edited_dr_df["Total Box"] = edited_dr_df["Box Reg"] + edited_dr_df["Box OT"]
+        st.session_state.df_daily_report_editor = edited_dr_df
 
         st.write("---")
         col_submit1, col_submit2 = st.columns(2)
@@ -710,8 +724,6 @@ elif st.session_state.page == 'input_daily_report':
                     j_ot = float(row_dr.get("Jam OT", 0.0) if pd.notna(row_dr.get("Jam OT")) else 0.0)
                     b_reg = int(row_dr.get("Box Reg", 0) if pd.notna(row_dr.get("Box Reg")) else 0)
                     b_ot = int(row_dr.get("Box OT", 0) if pd.notna(row_dr.get("Box OT")) else 0)
-                    
-                    # 📌 PERHITUNGAN TOTAL BOX DILAKUKAN DISINI SAAT SUBMIT
                     tot_b = b_reg + b_ot
                     ket_txt = str(row_dr.get("Keterangan", "") if pd.notna(row_dr.get("Keterangan")) else "").strip()
 
