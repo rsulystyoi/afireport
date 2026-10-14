@@ -587,16 +587,17 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (FIX FILTER NS & LIVE TOTAL BOX)
+# 5. HALAMAN INPUT DAILY REPORT (FIX FILTER STRICT SHIFT NS & LIVE TOTAL)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
     st.title("📝 Daily Report Page")
+    st.write(f"Logged in as: **{st.session_state.user_info.get('nama', '')}** ({st.session_state.user_info.get('nik', '')})")
     st.write("---")
 
     st.cache_data.clear()
 
-    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT (PUTIH, BIRU, NS, SEMUA)
+    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
@@ -606,7 +607,7 @@ elif st.session_state.page == 'input_daily_report':
 
     shift_dr_clean = str(shift_dr).strip().lower()
 
-    # 2. QUERY NAMA KARYAWAN HADIR DARI DB_ABSENSI WITH ACCURATE SHIFT FILTER
+    # 2. QUERY NAMA KARYAWAN HADIR DARI DB_ABSENSI DENGAN FILTER KETAT
     list_nama_hadir = []
     try:
         df_abs_fetched = conn.query("SELECT DISTINCT nama_karyawan, shift FROM db_absensi WHERE LOWER(kategori) = 'hadir' AND nama_karyawan IS NOT NULL AND nama_karyawan != '' ORDER BY nama_karyawan ASC;", ttl="0s")
@@ -614,19 +615,19 @@ elif st.session_state.page == 'input_daily_report':
         if len(df_abs_fetched) > 0:
             df_abs_fetched['shift_clean'] = df_abs_fetched['shift'].fillna("").astype(str).str.strip().str.lower()
             
-            def filter_shift_dr(row):
+            def filter_shift_strict(row):
                 s1 = row['shift_clean']
                 if shift_dr_clean == "putih":
                     return any(k in s1 for k in ['putih', 'shift 1', 's1']) or s1 == '1'
                 elif shift_dr_clean == "biru":
                     return any(k in s1 for k in ['biru', 'shift 2', 's2']) or s1 == '2'
                 elif shift_dr_clean == "ns":
-                    # Kategori NS: Mengandung kata 'ns' / 'non-shift' ATAU bukan Putih & bukan Biru
-                    return any(k in s1 for k in ['ns', 'non-shift', 'non shift']) or (not is_p and not is_b)
+                    # KETAT: Hanya ambil yang benar-benar mengandung kata 'ns' atau 'non-shift'
+                    return any(k in s1 for k in ['ns', 'non-shift', 'non shift'])
                 else:  # Semua Karyawan
                     return True
 
-            df_filtered_dr = df_abs_fetched[df_abs_fetched.apply(filter_shift_dr, axis=1)]
+            df_filtered_dr = df_abs_fetched[df_abs_fetched.apply(filter_shift_strict, axis=1)]
             list_nama_hadir = df_filtered_dr['nama_karyawan'].unique().tolist()
     except Exception as e_fetch:
         list_nama_hadir = []
@@ -652,7 +653,7 @@ elif st.session_state.page == 'input_daily_report':
         "Sortir 100%", "Leader", "Others"
     ]
 
-    # Inisialisasi DataFrame Daily Report
+    # INISIALISASI DATAFRAME EDITOR
     if "df_daily_report_editor" not in st.session_state or st.session_state.get("dr_last_shift_view") != shift_dr:
         if len(list_nama_hadir) > 0:
             init_data = []
@@ -677,7 +678,6 @@ elif st.session_state.page == 'input_daily_report':
         st.subheader("📋 Input Pekerjaan Harian Anggota Hadir")
         st.caption("💡 **Tips Multi-Job:** Jika karyawan mengerjakan lebih dari 1 job, klik tombol **(+) Add Row** di bagian bawah tabel, pilih nama karyawan yang sama, lalu pilih Job Kategori yang kedua.")
 
-        # Menampilkan editor tabel
         edited_dr_df = st.data_editor(
             st.session_state.df_daily_report_editor,
             column_config={
@@ -696,9 +696,6 @@ elif st.session_state.page == 'input_daily_report':
             key="editor_daily_report_table"
         )
 
-        # 📌 RECALCULATE LIVE TOTAL BOX (PENJUMLAHAN BOX REG + BOX OT)
-        edited_dr_df["Total Box"] = edited_dr_df["Box Reg"].fillna(0).astype(int) + edited_dr_df["Box OT"].fillna(0).astype(int)
-
         st.write("---")
         col_submit1, col_submit2 = st.columns(2)
 
@@ -713,7 +710,9 @@ elif st.session_state.page == 'input_daily_report':
                     j_ot = float(row_dr.get("Jam OT", 0.0) if pd.notna(row_dr.get("Jam OT")) else 0.0)
                     b_reg = int(row_dr.get("Box Reg", 0) if pd.notna(row_dr.get("Box Reg")) else 0)
                     b_ot = int(row_dr.get("Box OT", 0) if pd.notna(row_dr.get("Box OT")) else 0)
-                    tot_b = b_reg + b_ot  # Penjumlahan pasti akurat
+                    
+                    # 📌 PERHITUNGAN TOTAL BOX DILAKUKAN DISINI SAAT SUBMIT
+                    tot_b = b_reg + b_ot
                     ket_txt = str(row_dr.get("Keterangan", "") if pd.notna(row_dr.get("Keterangan")) else "").strip()
 
                     if nm_karyawan != "" and job_val != "- Pilih Job -":
