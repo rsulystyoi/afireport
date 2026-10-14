@@ -622,8 +622,6 @@ elif st.session_state.page == 'input_daily_report':
                     return any(k in s1 for k in ['biru', 'shift 2', 's2']) or s1 == '2'
                 elif shift_dr_clean == "ns":
                     # Kategori NS: Mengandung kata 'ns' / 'non-shift' ATAU bukan Putih & bukan Biru
-                    is_p = any(k in s1 for k in ['putih', 'shift 1', 's1']) or s1 == '1'
-                    is_b = any(k in s1 for k in ['biru', 'shift 2', 's2']) or s1 == '2'
                     return any(k in s1 for k in ['ns', 'non-shift', 'non shift']) or (not is_p and not is_b)
                 else:  # Semua Karyawan
                     return True
