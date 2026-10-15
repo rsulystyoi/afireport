@@ -587,7 +587,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (FORM KOLOM - TANPA DELAY & SUPPORT MULTI JOB)
+# 5. HALAMAN INPUT DAILY REPORT (FORM KOLOM - LIVE TOTAL BOX AKURAT)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -597,7 +597,7 @@ elif st.session_state.page == 'input_daily_report':
 
     st.cache_data.clear()
 
-    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT (PUTIH, BIRU, NS, SEMUA)
+    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
@@ -658,11 +658,11 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.dr_last_shift_resp = shift_dr
 
         st.subheader("📋 Input Pekerjaan Harian Anggota Hadir")
-        st.caption("Isi form di bawah ini. Total Box terhitung secara otomatis tanpa delay.")
+        st.caption("Isi form di bawah ini. Total Box terhitung secara otomatis.")
 
         records_to_insert = []
 
-       # LOOPING FORM SEJAJAR PER KARYAWAN
+        # LOOPING FORM SEJAJAR PER KARYAWAN
         for idx, nama in enumerate(list_nama_hadir):
             st.markdown(f"##### 👤 **{idx+1}. {nama.upper()}**")
             
@@ -684,12 +684,16 @@ elif st.session_state.page == 'input_daily_report':
                     box_reg = st.number_input("Box Reg", min_value=0, step=1, key=f"{pfx}_breg")
                 with col_bot:
                     box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
+                
+                # 📌 BACA NILAI STREAMLIT SESSION STATE SECARA REALTME
+                val_breg = int(st.session_state.get(f"{pfx}_breg", 0))
+                val_bot = int(st.session_state.get(f"{pfx}_bot", 0))
+                tot_box = val_breg + val_bot
+
                 with col_tot:
-                    # 📌 HITUNG PENJUMLAHAN LIVE DARI WIDGET
-                    tot_box = int(box_reg + box_ot)
-                    
-                    # 📌 MASUKKAN TOT_BOX KEDALAM PARAMETER VALUE
+                    # TAMPILKAN NILAI TOTAL BOX HASIL PENJUMLAHAN REALTME
                     st.number_input("Total Box", value=tot_box, disabled=True, key=f"{pfx}_tot_display")
+
                 ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
 
                 # Tampung data jika ada isian pekerjaan
@@ -704,8 +708,8 @@ elif st.session_state.page == 'input_daily_report':
                         "job_kategori": job_val if job_val != "- Pilih Job -" else "",
                         "jam_regular": jam_reg,
                         "jam_ot": jam_ot,
-                        "box_regular": box_reg,
-                        "box_ot": box_ot,
+                        "box_regular": val_breg,
+                        "box_ot": val_bot,
                         "total_box_job": tot_box,
                         "keterangan": ket_val
                     })
