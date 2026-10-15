@@ -662,7 +662,7 @@ elif st.session_state.page == 'input_daily_report':
 
         records_to_insert = []
 
-        # LOOPING FORM SEJAJAR PER KARYAWAN
+       # LOOPING FORM SEJAJAR PER KARYAWAN
         for idx, nama in enumerate(list_nama_hadir):
             st.markdown(f"##### 👤 **{idx+1}. {nama.upper()}**")
             
@@ -685,10 +685,9 @@ elif st.session_state.page == 'input_daily_report':
                 with col_bot:
                     box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
                 with col_tot:
-                    # 📌 KALKULASI TOTAL BOX INSTAN / LIVE TANPA DELAY
+                    # 📌 TOTAL BOX PRESISI & SEJAJAR MEMAKAI NUMBER_INPUT (DISABLED)
                     tot_box = int(box_reg + box_ot)
-                    st.markdown("<label style='font-size:14px; font-weight:bold;'>Total Box</label>", unsafe_allow_html=True)
-                    st.markdown(f"<div style='background-color:#e9ecef; padding:6px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #ced4da; color:#495057;'>{tot_box}</div>", unsafe_allow_html=True)
+                    st.number_input("Total Box", value=tot_box, disabled=True, key=f"{pfx}_tot_display")
 
                 ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
 
