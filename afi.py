@@ -587,7 +587,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (FORM KOLOM - LIVE TOTAL BOX AKURAT)
+# 5. HALAMAN INPUT DAILY REPORT (FORM KOLOM - TANPA DELAY & SUPPORT MULTI JOB)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -597,7 +597,7 @@ elif st.session_state.page == 'input_daily_report':
 
     st.cache_data.clear()
 
-    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT
+    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT (PUTIH, BIRU, NS, SEMUA)
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
@@ -658,7 +658,7 @@ elif st.session_state.page == 'input_daily_report':
             st.session_state.dr_last_shift_resp = shift_dr
 
         st.subheader("📋 Input Pekerjaan Harian Anggota Hadir")
-        st.caption("Isi form di bawah ini. Total Box terhitung secara otomatis.")
+        st.caption("Isi form di bawah ini. Total Box terhitung secara otomatis tanpa delay.")
 
         records_to_insert = []
 
@@ -684,15 +684,11 @@ elif st.session_state.page == 'input_daily_report':
                     box_reg = st.number_input("Box Reg", min_value=0, step=1, key=f"{pfx}_breg")
                 with col_bot:
                     box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
-                
-                # 📌 BACA NILAI STREAMLIT SESSION STATE SECARA REALTME
-                val_breg = int(st.session_state.get(f"{pfx}_breg", 0))
-                val_bot = int(st.session_state.get(f"{pfx}_bot", 0))
-                tot_box = val_breg + val_bot
-
                 with col_tot:
-                    # TAMPILKAN NILAI TOTAL BOX HASIL PENJUMLAHAN REALTME
-                    st.number_input("Total Box", value=tot_box, disabled=True, key=f"{pfx}_tot_display")
+                    # 📌 KALKULASI TOTAL BOX INSTAN / LIVE TANPA DELAY
+                    tot_box = int(box_reg + box_ot)
+                    st.markdown("<label style='font-size:14px; font-weight:bold;'>Total Box</label>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background-color:#e9ecef; padding:6px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #ced4da; color:#495057;'>{tot_box}</div>", unsafe_allow_html=True)
 
                 ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
 
@@ -708,8 +704,8 @@ elif st.session_state.page == 'input_daily_report':
                         "job_kategori": job_val if job_val != "- Pilih Job -" else "",
                         "jam_regular": jam_reg,
                         "jam_ot": jam_ot,
-                        "box_regular": val_breg,
-                        "box_ot": val_bot,
+                        "box_regular": box_reg,
+                        "box_ot": box_ot,
                         "total_box_job": tot_box,
                         "keterangan": ket_val
                     })
