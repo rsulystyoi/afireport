@@ -587,7 +587,7 @@ elif st.session_state.page == 'input_overtime':
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
-# 5. HALAMAN INPUT DAILY REPORT (LIVE TOTAL BOX & STRICT SHIFT FILTER)
+# 5. HALAMAN INPUT DAILY REPORT (FORM KOLOM - TANPA DELAY & SUPPORT MULTI JOB)
 # =====================================================================
 elif st.session_state.page == 'input_daily_report':
     st.markdown("<h4 style='text-align: right; color:#555; margin-bottom:0px;'>PT. Automotive Fasteners Aoyama Indonesia</h4>", unsafe_allow_html=True)
@@ -597,7 +597,7 @@ elif st.session_state.page == 'input_daily_report':
 
     st.cache_data.clear()
 
-    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT
+    # 1. HEADER: HARI / TANGGAL & PILIHAN SHIFT (PUTIH, BIRU, NS, SEMUA)
     col_hdr1, col_hdr2 = st.columns(2)
     with col_hdr1:
         tgl_dr = st.date_input("Hari / Tanggal :", value=datetime.now(), key="dr_tgl_input")
@@ -645,105 +645,85 @@ elif st.session_state.page == 'input_daily_report':
     )
     st.write("---")
 
-    COLS_DAILY_REPORT = ["Nama Karyawan", "Job Kategori", "Jam Reg", "Jam OT", "Box Reg", "Box OT", "Total Box", "Keterangan"]
-    list_job_options = [
-        "- Pilih Job -", "QA", "QC Factory", "Lokal Meja FI", "Lokal Vinyl DDMI", "Lokal Machine", 
-        "Engine Bolt", "Sugin", "Q-Gate", "Hardness", "Measurement", 
-        "Sortir 100%", "Leader", "Others"
-    ]
+    if list_nama_hadir:
+        list_job_options = [
+            "- Pilih Job -", "QA", "QC Factory", "Lokal Meja FI", "Lokal Vinyl DDMI", "Lokal Machine", 
+            "Engine Bolt", "Sugin", "Q-Gate", "Hardness", "Measurement", 
+            "Sortir 100%", "Leader", "Others"
+        ]
 
-    # 3. INISIALISASI DATAFRAME EDITOR
-    if "df_daily_report_editor" not in st.session_state or st.session_state.get("dr_last_shift_view") != shift_dr:
-        if len(list_nama_hadir) > 0:
-            init_data = []
-            for nm in list_nama_hadir:
-                init_data.append({
-                    "Nama Karyawan": nm,
-                    "Job Kategori": "- Pilih Job -",
-                    "Jam Reg": 0.0,
-                    "Jam OT": 0.0,
-                    "Box Reg": 0,
-                    "Box OT": 0,
-                    "Total Box": 0,
-                    "Keterangan": ""
-                })
-            st.session_state.df_daily_report_editor = pd.DataFrame(init_data)
-        else:
-            st.session_state.df_daily_report_editor = pd.DataFrame(columns=COLS_DAILY_REPORT)
-            
-        st.session_state.dr_last_shift_view = shift_dr
+        # Inisialisasi struktur jumlah pekerjaan per karyawan
+        if "dr_user_jobs" not in st.session_state or st.session_state.get("dr_last_shift_resp") != shift_dr:
+            st.session_state.dr_user_jobs = {nama: [1] for nama in list_nama_hadir}
+            st.session_state.dr_last_shift_resp = shift_dr
 
-    if len(st.session_state.df_daily_report_editor) > 0:
         st.subheader("📋 Input Pekerjaan Harian Anggota Hadir")
-        st.caption("💡 **Tips Multi-Job:** Jika karyawan mengerjakan lebih dari 1 job, klik tombol **(+) Add Row** di bagian bawah tabel, pilih nama karyawan yang sama, lalu pilih Job Kategori yang kedua.")
+        st.caption("Isi form di bawah ini. Total Box terhitung secara otomatis tanpa delay.")
 
-        # 📌 A. KALKULASI INTERAKTIF TOTAL BOX DARI DATAFRAME SESSION STATE
-        df_display = st.session_state.df_daily_report_editor.copy()
-        
-        # Penjumlahan dinamis Box Reg + Box OT
-        b_reg_series = pd.to_numeric(df_display["Box Reg"], errors='coerce').fillna(0).astype(int)
-        b_ot_series = pd.to_numeric(df_display["Box OT"], errors='coerce').fillna(0).astype(int)
-        df_display["Total Box"] = b_reg_series + b_ot_series
+        records_to_insert = []
 
-        # 📌 B. RENDER ST.DATA_EDITOR DENGAN NILAI TOTAL BOX TERHITUNG
-        edited_dr_df = st.data_editor(
-            df_display,
-            column_config={
-                "Nama Karyawan": st.column_config.SelectboxColumn("Nama Karyawan", options=list_nama_hadir, required=True),
-                "Job Kategori": st.column_config.SelectboxColumn("Job Kategori", options=list_job_options, required=True),
-                "Jam Reg": st.column_config.NumberColumn("Jam Reg", min_value=0.0, step=0.5, format="%.1f"),
-                "Jam OT": st.column_config.NumberColumn("Jam OT", min_value=0.0, step=0.5, format="%.1f"),
-                "Box Reg": st.column_config.NumberColumn("Box Reg", min_value=0, step=1),
-                "Box OT": st.column_config.NumberColumn("Box OT", min_value=0, step=1),
-                "Total Box": st.column_config.NumberColumn("Total Box", disabled=True),  # Kolom dikunci karena hasil penjumlahan
-                "Keterangan": st.column_config.TextColumn("Keterangan Catatan")
-            },
-            num_rows="dynamic",
-            hide_index=False,
-            use_container_width=True,
-            key="editor_daily_report_table"
-        )
+        # LOOPING FORM SEJAJAR PER KARYAWAN
+        for idx, nama in enumerate(list_nama_hadir):
+            st.markdown(f"##### 👤 **{idx+1}. {nama.upper()}**")
+            
+            job_rows = st.session_state.dr_user_jobs.get(nama, [1])
 
-        # 📌 C. SIMPAN EDITED DATAFRAME DAN RE-CALCULATE KE SESSION STATE
-        edited_dr_df["Box Reg"] = pd.to_numeric(edited_dr_df["Box Reg"], errors='coerce').fillna(0).astype(int)
-        edited_dr_df["Box OT"] = pd.to_numeric(edited_dr_df["Box OT"], errors='coerce').fillna(0).astype(int)
-        edited_dr_df["Total Box"] = edited_dr_df["Box Reg"] + edited_dr_df["Box OT"]
-        st.session_state.df_daily_report_editor = edited_dr_df
+            for j_idx in range(len(job_rows)):
+                pfx = f"dr_{shift_dr}_{nama}_{j_idx}"  # Key unik widget
 
-        st.write("---")
+                # Membagi form dalam 6 Kolom Sejajar
+                col_job, col_jreg, col_jot, col_breg, col_bot, col_tot = st.columns([2.5, 1.2, 1.2, 1.2, 1.2, 1.2])
+
+                with col_job:
+                    job_val = st.selectbox(f"Job #{j_idx+1}", list_job_options, key=f"{pfx}_job")
+                with col_jreg:
+                    jam_reg = st.number_input("Jam Reg", min_value=0.0, step=0.5, format="%.1f", key=f"{pfx}_jreg")
+                with col_jot:
+                    jam_ot = st.number_input("Jam OT", min_value=0.0, step=0.5, format="%.1f", key=f"{pfx}_jot")
+                with col_breg:
+                    box_reg = st.number_input("Box Reg", min_value=0, step=1, key=f"{pfx}_breg")
+                with col_bot:
+                    box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
+                with col_tot:
+                    # 📌 KALKULASI TOTAL BOX INSTAN / LIVE TANPA DELAY
+                    tot_box = int(box_reg + box_ot)
+                    st.markdown("<label style='font-size:14px; font-weight:bold;'>Total Box</label>", unsafe_allow_html=True)
+                    st.markdown(f"<div style='background-color:#e9ecef; padding:6px; border-radius:4px; text-align:center; font-weight:bold; border:1px solid #ced4da; color:#495057;'>{tot_box}</div>", unsafe_allow_html=True)
+
+                ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
+
+                # Tampung data jika ada isian pekerjaan
+                if job_val != "- Pilih Job -" or jam_reg > 0 or jam_ot > 0 or tot_box > 0:
+                    records_to_insert.append({
+                        "user_input": str(st.session_state.user_info.get("nama", "")),
+                        "tahun": tgl_dr.strftime("%Y"),
+                        "bulan": tgl_dr.strftime("%B"),
+                        "tanggal": tgl_dr.strftime("%Y-%m-%d"),
+                        "shift": shift_dr,
+                        "nama": nama,
+                        "job_kategori": job_val if job_val != "- Pilih Job -" else "",
+                        "jam_regular": jam_reg,
+                        "jam_ot": jam_ot,
+                        "box_regular": box_reg,
+                        "box_ot": box_ot,
+                        "total_box_job": tot_box,
+                        "keterangan": ket_val
+                    })
+
+            # TOMBOL TAMBAH JOB KHUSUS KARYAWAN INI
+            col_add_btn, _ = st.columns([2, 5])
+            with col_add_btn:
+                if st.button(f"➕ Tambah Job ({nama})", key=f"btn_add_job_{nama}"):
+                    st.session_state.dr_user_jobs[nama].append(len(job_rows) + 1)
+                    st.rerun()
+
+            st.write("---")
+
+        # TOMBOL AKSI UTAMA DI BAGIAN BAWAH
         col_submit1, col_submit2 = st.columns(2)
 
         with col_submit1:
             if st.button("Submit Daily Report", use_container_width=True, type="primary", key="submit_dr_final"):
-                records_to_insert = []
-                
-                for idx, row_dr in edited_dr_df.iterrows():
-                    nm_karyawan = str(row_dr.get("Nama Karyawan", "") if pd.notna(row_dr.get("Nama Karyawan")) else "").strip()
-                    job_val = str(row_dr.get("Job Kategori", "- Pilih Job -")).strip()
-                    j_reg = float(row_dr.get("Jam Reg", 0.0) if pd.notna(row_dr.get("Jam Reg")) else 0.0)
-                    j_ot = float(row_dr.get("Jam OT", 0.0) if pd.notna(row_dr.get("Jam OT")) else 0.0)
-                    b_reg = int(row_dr.get("Box Reg", 0) if pd.notna(row_dr.get("Box Reg")) else 0)
-                    b_ot = int(row_dr.get("Box OT", 0) if pd.notna(row_dr.get("Box OT")) else 0)
-                    tot_b = b_reg + b_ot
-                    ket_txt = str(row_dr.get("Keterangan", "") if pd.notna(row_dr.get("Keterangan")) else "").strip()
-
-                    if nm_karyawan != "" and job_val != "- Pilih Job -":
-                        records_to_insert.append({
-                            "user_input": str(st.session_state.user_info.get("nama", "")),
-                            "tahun": tgl_dr.strftime("%Y"),
-                            "bulan": tgl_dr.strftime("%B"),
-                            "tanggal": tgl_dr.strftime("%Y-%m-%d"),
-                            "shift": shift_dr,
-                            "nama": nm_karyawan,
-                            "job_kategori": job_val,
-                            "jam_regular": j_reg,
-                            "jam_ot": j_ot,
-                            "box_regular": b_reg,
-                            "box_ot": b_ot,
-                            "total_box_job": tot_b,
-                            "keterangan": ket_txt
-                        })
-
                 if records_to_insert:
                     with conn.engine.begin() as connection:
                         query = text("""
@@ -759,23 +739,23 @@ elif st.session_state.page == 'input_daily_report':
                         for item in records_to_insert:
                             connection.execute(query, item)
 
-                    st.success(f"✅ Berhasil menyimpan {len(records_to_insert)} baris pekerjaan Daily Report!")
-                    st.session_state.df_daily_report_editor = pd.DataFrame(columns=COLS_DAILY_REPORT)
+                    if "dr_user_jobs" in st.session_state:
+                        del st.session_state["dr_user_jobs"]
+
+                    st.success(f"✅ Berhasil menyimpan {len(records_to_insert)} baris Daily Report!")
                     st.session_state.page = 'select_menu'
                     st.rerun()
                 else:
-                    st.warning("⚠️ Silakan pilih **Job Kategori** untuk minimal satu karyawan sebelum Submit.")
+                    st.warning("⚠️ Belum ada data pekerjaan yang diisi!")
 
         with col_submit2:
             if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_form"):
-                st.session_state.df_daily_report_editor = pd.DataFrame(columns=COLS_DAILY_REPORT)
                 st.session_state.page = 'select_menu'
                 st.rerun()
 
     else:
         st.warning(f"⚠️ Tidak ada data karyawan berstatus **Hadir** untuk {shift_dr} di menu Attendance (`db_absensi`).")
         if st.button("Kembali ke Menu Utama", use_container_width=True, key="back_dr_empty"):
-            st.session_state.df_daily_report_editor = pd.DataFrame(columns=COLS_DAILY_REPORT)
             st.session_state.page = 'select_menu'
             st.rerun()
 # =====================================================================
