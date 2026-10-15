@@ -685,10 +685,11 @@ elif st.session_state.page == 'input_daily_report':
                 with col_bot:
                     box_ot = st.number_input("Box OT", min_value=0, step=1, key=f"{pfx}_bot")
                 with col_tot:
-                    # 📌 TOTAL BOX PRESISI & SEJAJAR MEMAKAI NUMBER_INPUT (DISABLED)
+                    # 📌 HITUNG PENJUMLAHAN LIVE DARI WIDGET
                     tot_box = int(box_reg + box_ot)
+                    
+                    # 📌 MASUKKAN TOT_BOX KEDALAM PARAMETER VALUE
                     st.number_input("Total Box", value=tot_box, disabled=True, key=f"{pfx}_tot_display")
-
                 ket_val = st.text_input("Keterangan Catatan (Opsional)", key=f"{pfx}_ket", placeholder="Tambahkan catatan...")
 
                 # Tampung data jika ada isian pekerjaan
